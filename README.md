@@ -101,15 +101,15 @@ The entire app runs in the browser using only web standards — making it lightw
 ## 📂 Project Structure
 
 KrrishsKhaata/
-├── index.html # Main app HTML structure
-├── style.css # All styling and animations
-├── app.js # Complete app logic and functionality
-├── manifest.json # PWA manifest for installability
-├── service-worker.js # Service worker for offline caching
-├── README.md # Project documentation
-└── icons/
-├── icon-192.png # App icon (192x192)
-└── icon-512.png # App icon (512x512)
+- index.html # Main app HTML structure
+- style.css # All styling and animations
+- app.js # Complete app logic and functionality
+- manifest.json # PWA manifest for installability
+- service-worker.js # Service worker for offline caching
+- README.md # Project documentation
+- icons/
+- icon-192.png # App icon (192x192)
+- icon-512.png # App icon (512x512)
 
 
 ---
