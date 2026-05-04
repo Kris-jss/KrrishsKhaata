@@ -288,14 +288,8 @@ select {
 
 /* ===== ANIMATIONS ===== */
 @keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes fadeIn {
@@ -304,35 +298,15 @@ select {
 }
 
 @keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-.app-header {
-  animation: fadeInUp 0.4s ease;
-}
-
-.summary-card {
-  animation: fadeInUp 0.45s ease;
-}
-
-.source-section {
-  animation: fadeInUp 0.5s ease;
-}
-
-.recent-section {
-  animation: fadeInUp 0.55s ease;
-}
-
-.fab {
-  animation: fadeInUp 0.6s ease;
-}
+.app-header { animation: fadeInUp 0.4s ease; }
+.summary-card { animation: fadeInUp 0.45s ease; }
+.source-section { animation: fadeInUp 0.5s ease; }
+.recent-section { animation: fadeInUp 0.55s ease; }
+.fab { animation: fadeInUp 0.6s ease; }
 
 /* ===== MODAL ===== */
 .modal-overlay {
@@ -456,7 +430,7 @@ select {
   transform: scale(0.97);
 }
 
-/* ===== ADD TRANSACTION FORM ===== */
+/* ===== FORM FIELDS ===== */
 .modal-tall .modal-body {
   max-height: 65vh;
   overflow-y: auto;
@@ -604,12 +578,22 @@ select {
 .txn-right {
   flex-shrink: 0;
   margin-left: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
 }
 
 .txn-amount {
   font-size: 1rem;
   font-weight: 700;
   color: var(--color-primary);
+}
+
+.txn-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+  justify-content: flex-end;
 }
 
 /* ===== SETTINGS EDITABLE LISTS ===== */
@@ -836,6 +820,34 @@ select {
   align-items: flex-start;
 }
 
+/* ===== ACTION BUTTONS ===== */
+.delete-btn,
+.edit-btn,
+.wa-btn {
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 8px;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.delete-btn:active {
+  background: #f5e0e0;
+  transform: scale(0.9);
+}
+
+.edit-btn:active {
+  background: #e0ecf5;
+  transform: scale(0.9);
+}
+
+.wa-btn:active {
+  background: #d4edda;
+  transform: scale(0.9);
+}
+
 /* ===== SUMMARY MODAL ===== */
 .summary-body {
   padding: 20px;
@@ -929,12 +941,6 @@ select {
   color: var(--color-text);
 }
 
-@media (min-width: 640px) {
-  #app {
-    padding: 24px;
-  }
-}
-
 /* ===== BACKUP SECTION ===== */
 .backup-section {
   padding: 16px 20px 4px;
@@ -979,51 +985,99 @@ select {
   border: 2px solid var(--color-accent);
 }
 
-/* ===== DELETE BUTTON ===== */
-.delete-btn {
-  background: none;
-  border: none;
-  font-size: 1.1rem;
-  cursor: pointer;
-  padding: 4px 6px;
-  border-radius: 8px;
-  margin-top: 6px;
-  transition: background 0.2s ease, transform 0.15s ease;
-  display: block;
-}
-
-.delete-btn:active {
-  background: #f5e0e0;
-  transform: scale(0.9);
-}
-
-.txn-right {
-  flex-shrink: 0;
-  margin-left: 10px;
+/* ===== SOURCE SETTINGS ===== */
+.source-edit-item {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+  padding: 12px;
+  background: var(--color-bg);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(142, 182, 155, 0.3);
 }
 
-/* ===== WHATSAPP & ACTION BUTTONS ===== */
-.txn-actions {
+.source-edit-item .source-emoji-picker {
+  width: 100%;
+}
+
+.source-edit-item .source-name-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.source-emoji-picker {
   display: flex;
   gap: 4px;
-  margin-top: 6px;
-  justify-content: flex-end;
 }
 
-.wa-btn {
-  background: none;
-  border: none;
+.emoji-option {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--color-white);
+  border: 2px solid transparent;
   font-size: 1.1rem;
   cursor: pointer;
-  padding: 4px 6px;
-  border-radius: 8px;
-  transition: background 0.2s ease, transform 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.2s ease;
 }
 
-.wa-btn:active {
-  background: #d4edda;
+.emoji-option.emoji-active {
+  border-color: var(--color-primary);
+  background: var(--color-surface);
+}
+
+.emoji-option:active {
   transform: scale(0.9);
+}
+
+.source-name-input {
+  flex: 1;
+  background: var(--color-white);
+  border: 2px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.source-name-input:focus {
+  border-color: var(--color-secondary);
+}
+
+/* ===== MODE CHIPS ===== */
+.mode-grid {
+  display: flex;
+  gap: 8px;
+}
+
+.mode-btn {
+  flex: 1;
+  background: var(--color-bg);
+  border: 2px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.mode-btn.chip-active {
+  background: var(--color-primary);
+  color: var(--color-white);
+  border-color: var(--color-primary);
+}
+
+@media (min-width: 640px) {
+  #app {
+    padding: 24px;
+  }
 }
