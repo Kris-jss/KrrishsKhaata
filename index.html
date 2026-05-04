@@ -14,8 +14,8 @@
       rel="stylesheet"
     />
 
-    <link rel="manifest" href="manifest.json" />
-    <link rel="apple-touch-icon" href="icons/icon-192.png" />
+    <link rel="manifest" href="./manifest.json" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.png" />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
@@ -50,27 +50,7 @@
 
         <section class="source-section">
           <h2>Payment Source</h2>
-          <div class="source-grid">
-            <button class="source-card" data-source="card1">
-              <span class="source-icon">💳</span>
-              <span class="source-name">Card 1</span>
-              <span class="source-total">₹0</span>
-            </button>
-            <button class="source-card" data-source="card2">
-              <span class="source-icon">💳</span>
-              <span class="source-name">Card 2</span>
-              <span class="source-total">₹0</span>
-            </button>
-            <button class="source-card" data-source="bank">
-              <span class="source-icon">🏦</span>
-              <span class="source-name">Direct Bank</span>
-              <span class="source-total">₹0</span>
-            </button>
-            <button class="source-card" data-source="wallet">
-              <span class="source-icon">👛</span>
-              <span class="source-name">Wallet</span>
-              <span class="source-total">₹0</span>
-            </button>
+          <div class="source-grid" id="sourceGrid">
           </div>
         </section>
 
@@ -119,14 +99,15 @@
                 <option value="household">🏠 Household</option>
                 <option value="personal_other">👤 Someone's Personal</option>
                 <option value="personal_self">🙋 My Personal</option>
+                <option value="direct_credit">🤝 Direct Credit</option>
               </select>
             </div>
             <div class="filter-field">
               <label>Status</label>
               <select id="filterStatus">
                 <option value="all">All</option>
-                <option value="unmatched">Unmatched</option>
-                <option value="matched">Matched</option>
+                <option value="unmatched">Unmatched / Unsettled</option>
+                <option value="matched">Matched / Settled</option>
               </select>
             </div>
           </div>
@@ -145,7 +126,7 @@
             </div>
             <div class="summary-divider"></div>
             <div class="summary-item">
-              <span class="summary-label">Unmatched</span>
+              <span class="summary-label">Pending</span>
               <span class="summary-total summary-warn" id="unmatchedCount">0</span>
             </div>
           </div>
@@ -161,10 +142,10 @@
     <button class="fab" id="fabBtn" title="Add Transaction">+</button>
 
     <script src="app.js"></script>
- <script>
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./service-worker.js");
-  }
-</script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("./service-worker.js");
+      }
+    </script>
   </body>
 </html>
