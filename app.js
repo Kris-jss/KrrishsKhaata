@@ -1,15 +1,25 @@
-// ===== DEFAULT SETTINGS =====
-var defaultSettings = {
-  sources: {
-    card1: "Card 1",
-    card2: "Card 2",
-    bank: "Direct Bank",
-    wallet: "Wallet"
-  }
-};
+// ===== DEFAULT DATA =====
+var defaultSources = [
+  { id: "card1", emoji: "💳", name: "Card 1" },
+  { id: "card2", emoji: "💳", name: "Card 2" },
+  { id: "bank", emoji: "🏦", name: "Direct Bank" },
+  { id: "wallet", emoji: "👛", name: "Wallet" }
+];
 
 var defaultNames = ["Father", "Mother", "Sister", "Brother", "Dadi", "Chachu", "Bua", "Self"];
 var defaultPlatforms = ["Flipkart", "Amazon", "Swiggy", "Zepto", "BigBasket"];
+var emojiOptions = ["💳", "🏦", "👛", "💵", "📱"];
+
+// ===== STORAGE FUNCTIONS =====
+function loadSources() {
+  var saved = localStorage.getItem("kk_sources");
+  if (saved) return JSON.parse(saved);
+  return JSON.parse(JSON.stringify(defaultSources));
+}
+
+function saveSources(sources) {
+  localStorage.setItem("kk_sources", JSON.stringify(sources));
+}
 
 function loadNames() {
   var saved = localStorage.getItem("kk_names");
@@ -31,16 +41,6 @@ function savePlatforms(platforms) {
   localStorage.setItem("kk_platforms", JSON.stringify(platforms));
 }
 
-function loadSettings() {
-  var saved = localStorage.getItem("kk_settings");
-  if (saved) return JSON.parse(saved);
-  return JSON.parse(JSON.stringify(defaultSettings));
-}
-
-function saveSettings(settings) {
-  localStorage.setItem("kk_settings", JSON.stringify(settings));
-}
-
 function loadTransactions() {
   var saved = localStorage.getItem("kk_transactions");
   if (saved) return JSON.parse(saved);
@@ -51,30 +51,86 @@ function saveTransactions(transactions) {
   localStorage.setItem("kk_transactions", JSON.stringify(transactions));
 }
 
+// ===== HELPER: Get source name by id =====
+function getSourceName(sourceId) {
+  var sources = loadSources();
+  for (var i = 0; i < sources.length; i++) {
+    if (sources[i].id === sourceId) return sources[i].name;
+  }
+  return sourceId;
+}
+
+function getSourceEmoji(sourceId) {
+  var sources = loadSources();
+  for (var i = 0; i < sources.length; i++) {
+    if (sources[i].id === sourceId) return sources[i].emoji;
+  }
+  return "💳";
+}
+
 // ===== WHATSAPP REMIND =====
 function sendWhatsAppReminder(txn) {
   var d = new Date(txn.dateTime);
   var dateStr = d.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
   var amount = Number(txn.amount).toLocaleString("en-IN");
-  var items = txn.items || "an item";
   var name = txn.personName || "there";
+  var message = "";
 
-  var message = "Hey " + name + ", you had asked me to order " + items + " on " + dateStr + ". The amount for it was ₹" + amount + ". Please settle when convenient 🙏";
+  if (txn.category === "direct_credit") {
+    message = "Hey " + name + ", I had lent you ₹" + amount + " on " + dateStr + ". Kindly settle when convenient 🙂";
+  } else {
+    var items = txn.items || "an item";
+    message = "Hey " + name + ", you had asked me to order " + items + " on " + dateStr + ". The amount for it was ₹" + amount + ". Please settle when convenient 🙏";
+  }
 
   var url = "https://wa.me/?text=" + encodeURIComponent(message);
   window.open(url, "_blank");
 }
 
-// ===== APPLY SOURCE NAMES =====
-function applySourceNames() {
-  var settings = loadSettings();
-  var cards = document.querySelectorAll(".source-card");
-  cards.forEach(function (card) {
-    var key = card.getAttribute("data-source");
-    var nameEl = card.querySelector(".source-name");
-    if (settings.sources[key]) {
-      nameEl.textContent = settings.sources[key];
+// ===== RENDER SOURCE GRID =====
+function renderSourceGrid() {
+  var sources = loadSources();
+  var transactions = loadTransactions();
+  var now = new Date();
+  var currentMonth = now.getMonth();
+  var currentYear = now.getFullYear();
+
+  var thisMonth = transactions.filter(function (t) {
+    var d = new Date(t.dateTime);
+    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+  });
+
+  var sourceTotals = {};
+  sources.forEach(function (s) {
+    sourceTotals[s.id] = 0;
+  });
+
+  thisMonth.forEach(function (t) {
+    if (sourceTotals.hasOwnProperty(t.source)) {
+      sourceTotals[t.source] += Number(t.amount);
     }
+  });
+
+  var grid = document.getElementById("sourceGrid");
+  var html = "";
+
+  sources.forEach(function (s) {
+    html +=
+      '<button class="source-card" data-source="' + s.id + '">' +
+      '<span class="source-icon">' + s.emoji + "</span>" +
+      '<span class="source-name">' + s.name + "</span>" +
+      '<span class="source-total">₹' + (sourceTotals[s.id] || 0).toLocaleString("en-IN") + "</span>" +
+      "</button>";
+  });
+
+  grid.innerHTML = html;
+
+  // Re-attach click listeners
+  grid.querySelectorAll(".source-card").forEach(function (card) {
+    card.addEventListener("click", function () {
+      var source = card.getAttribute("data-source");
+      createAddTransactionModal(source, null);
+    });
   });
 }
 
@@ -98,27 +154,28 @@ function updateHomeTotals() {
   document.getElementById("monthTotal").textContent = "₹" + monthTotal.toLocaleString("en-IN");
   document.getElementById("monthCount").textContent = thisMonth.length;
 
-  var sourceTotals = { card1: 0, card2: 0, bank: 0, wallet: 0 };
-  thisMonth.forEach(function (t) {
-    if (sourceTotals.hasOwnProperty(t.source)) {
-      sourceTotals[t.source] += Number(t.amount);
-    }
-  });
-
-  var cards = document.querySelectorAll(".source-card");
-  cards.forEach(function (card) {
-    var key = card.getAttribute("data-source");
-    var totalEl = card.querySelector(".source-total");
-    totalEl.textContent = "₹" + sourceTotals[key].toLocaleString("en-IN");
-  });
-
+  renderSourceGrid();
   updateRecentList(thisMonth);
+}
+
+// ===== CATEGORY HELPERS =====
+var categoryColors = {
+  household: "#235347",
+  personal_other: "#7da0ca",
+  personal_self: "#8eb69b",
+  direct_credit: "#c0392b"
+};
+
+function getCategoryLabel(t) {
+  if (t.category === "household") return "🏠 Household";
+  if (t.category === "personal_self") return "🙋 My Personal";
+  if (t.category === "direct_credit") return "🤝 Credit · " + (t.personName || "Someone");
+  return "👤 " + (t.personName || "Someone");
 }
 
 // ===== UPDATE RECENT LIST =====
 function updateRecentList(transactions) {
   var container = document.getElementById("recentList");
-  var settings = loadSettings();
 
   if (transactions.length === 0) {
     container.innerHTML =
@@ -136,53 +193,73 @@ function updateRecentList(transactions) {
 
   var recent = sorted.slice(0, 5);
 
-  var categoryColors = {
-    household: "#235347",
-    personal_other: "#7da0ca",
-    personal_self: "#8eb69b"
-  };
-
-  var categoryLabels = {
-    household: "🏠 Household",
-    personal_self: "🙋 My Personal"
-  };
-
   var html = "";
   recent.forEach(function (t) {
     var d = new Date(t.dateTime);
     var dateStr = d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
     var timeStr = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
-    var sourceName = settings.sources[t.source] || t.source;
+    var sourceName = getSourceName(t.source);
     var catColor = categoryColors[t.category] || "#235347";
-    var catLabel = categoryLabels[t.category] || "👤 " + (t.personName || "Someone");
+    var catLabel = getCategoryLabel(t);
 
-    var whatsappBtn = "";
-    if (t.category === "personal_other") {
-      whatsappBtn = '<button class="wa-btn" data-id="' + t.id + '" title="Remind via WhatsApp">💬</button>';
+    var itemsDisplay = t.items || "No details";
+    if (t.category === "direct_credit") {
+      itemsDisplay = t.mode ? ("Via " + t.mode) : "Direct Credit";
+      if (t.items) itemsDisplay += " · " + t.items;
     }
 
+    var actionBtns = '<button class="edit-btn" data-id="' + t.id + '" title="Edit">✏️</button>';
+    if (t.category === "personal_other" || t.category === "direct_credit") {
+      actionBtns += '<button class="wa-btn" data-id="' + t.id + '" title="Remind via WhatsApp">💬</button>';
+    }
+
+    var statusText = "";
+    if (t.category === "direct_credit") {
+      statusText = t.settled ? " · Settled" : " · Unsettled";
+    } else {
+      statusText = t.matched ? " · Matched" : "";
+    }
+
+    var isResolved = t.category === "direct_credit" ? t.settled : t.matched;
+
     html +=
-      '<div class="txn-item ' + (t.matched ? "txn-matched" : "") + '">' +
+      '<div class="txn-item ' + (isResolved ? "txn-matched" : "") + '">' +
       '<div class="txn-left">' +
       '<div class="txn-category-dot" style="background:' + catColor + '"></div>' +
       '<div class="txn-details">' +
-      '<span class="txn-items">' + (t.items || "No details") + "</span>" +
-      '<span class="txn-meta">' + catLabel + " · " + sourceName + "</span>" +
-      '<span class="txn-meta">' + (t.platform || "") + " · " + dateStr + " · " + timeStr + "</span>" +
+      '<span class="txn-items">' + itemsDisplay + "</span>" +
+      '<span class="txn-meta">' + catLabel + " · " + sourceName + statusText + "</span>" +
+      '<span class="txn-meta">' + dateStr + " · " + timeStr + "</span>" +
       "</div>" +
       "</div>" +
       '<div class="txn-right">' +
       '<span class="txn-amount">₹' + Number(t.amount).toLocaleString("en-IN") + "</span>" +
-      whatsappBtn +
+      '<div class="txn-actions">' + actionBtns + "</div>" +
       "</div>" +
       "</div>";
   });
 
   container.innerHTML = html;
 
-  // WhatsApp button listeners for recent list
+  // Edit buttons
+  container.querySelectorAll(".edit-btn").forEach(function (btn) {
+    btn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var id = btn.getAttribute("data-id");
+      var allTxns = loadTransactions();
+      for (var i = 0; i < allTxns.length; i++) {
+        if (allTxns[i].id === id) {
+          createAddTransactionModal(null, allTxns[i]);
+          break;
+        }
+      }
+    });
+  });
+
+  // WhatsApp buttons
   container.querySelectorAll(".wa-btn").forEach(function (btn) {
-    btn.addEventListener("click", function () {
+    btn.addEventListener("click", function (e) {
+      e.stopPropagation();
       var id = btn.getAttribute("data-id");
       var allTxns = loadTransactions();
       for (var i = 0; i < allTxns.length; i++) {
@@ -210,7 +287,7 @@ function openAllTransactions() {
 }
 
 function populateFilters() {
-  var settings = loadSettings();
+  var sources = loadSources();
   var transactions = loadTransactions();
 
   var monthSelect = document.getElementById("filterMonth");
@@ -240,16 +317,14 @@ function populateFilters() {
 
   var sourceSelect = document.getElementById("filterSource");
   var sourceHtml = '<option value="all">All Sources</option>';
-  var sourceKeys = Object.keys(settings.sources);
-  sourceKeys.forEach(function (key) {
-    sourceHtml += '<option value="' + key + '">' + settings.sources[key] + "</option>";
+  sources.forEach(function (s) {
+    sourceHtml += '<option value="' + s.id + '">' + s.emoji + " " + s.name + "</option>";
   });
   sourceSelect.innerHTML = sourceHtml;
 }
 
 function applyFilters() {
   var transactions = loadTransactions();
-  var settings = loadSettings();
 
   var monthVal = document.getElementById("filterMonth").value;
   var sourceVal = document.getElementById("filterSource").value;
@@ -264,8 +339,16 @@ function applyFilters() {
     }
     if (sourceVal !== "all" && t.source !== sourceVal) return false;
     if (categoryVal !== "all" && t.category !== categoryVal) return false;
-    if (statusVal === "matched" && !t.matched) return false;
-    if (statusVal === "unmatched" && t.matched) return false;
+
+    if (statusVal === "matched") {
+      if (t.category === "direct_credit" && !t.settled) return false;
+      if (t.category !== "direct_credit" && !t.matched) return false;
+    }
+    if (statusVal === "unmatched") {
+      if (t.category === "direct_credit" && t.settled) return false;
+      if (t.category !== "direct_credit" && t.matched) return false;
+    }
+
     return true;
   });
 
@@ -274,15 +357,16 @@ function applyFilters() {
   });
 
   var total = 0;
-  var unmatchedTotal = 0;
+  var pendingCount = 0;
   filtered.forEach(function (t) {
     total += Number(t.amount);
-    if (!t.matched) unmatchedTotal++;
+    if (t.category === "direct_credit" && !t.settled) pendingCount++;
+    else if (t.category !== "direct_credit" && !t.matched) pendingCount++;
   });
 
   document.getElementById("filteredTotal").textContent = "₹" + total.toLocaleString("en-IN");
   document.getElementById("filteredCount").textContent = filtered.length;
-  document.getElementById("unmatchedCount").textContent = unmatchedTotal;
+  document.getElementById("unmatchedCount").textContent = pendingCount;
 
   var container = document.getElementById("allTxnList");
 
@@ -295,49 +379,45 @@ function applyFilters() {
     return;
   }
 
-  var categoryColors = {
-    household: "#235347",
-    personal_other: "#7da0ca",
-    personal_self: "#8eb69b"
-  };
-
-  var categoryLabels = {
-    household: "🏠 Household",
-    personal_self: "🙋 My Personal"
-  };
-
   var html = "";
   filtered.forEach(function (t) {
     var d = new Date(t.dateTime);
     var dateStr = d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
     var timeStr = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
-    var sourceName = settings.sources[t.source] || t.source;
+    var sourceName = getSourceName(t.source);
     var catColor = categoryColors[t.category] || "#235347";
-    var catLabel = categoryLabels[t.category] || "👤 " + (t.personName || "Someone");
+    var catLabel = getCategoryLabel(t);
 
-    var whatsappBtn = "";
-    if (t.category === "personal_other") {
-      whatsappBtn = '<button class="wa-btn" data-id="' + t.id + '" title="Remind via WhatsApp">💬</button>';
+    var itemsDisplay = t.items || "No details";
+    if (t.category === "direct_credit") {
+      itemsDisplay = t.mode ? ("Via " + t.mode) : "Direct Credit";
+      if (t.items) itemsDisplay += " · " + t.items;
     }
 
+    var isResolved = t.category === "direct_credit" ? t.settled : t.matched;
+    var checkboxLabel = t.category === "direct_credit" ? "Settled" : "Matched";
+
+    var actionBtns = '<button class="edit-btn" data-id="' + t.id + '" title="Edit">✏️</button>';
+    if (t.category === "personal_other" || t.category === "direct_credit") {
+      actionBtns += '<button class="wa-btn" data-id="' + t.id + '" title="Remind">💬</button>';
+    }
+    actionBtns += '<button class="delete-btn" data-id="' + t.id + '" title="Delete">🗑️</button>';
+
     html +=
-      '<div class="txn-item-full ' + (t.matched ? "txn-matched-full" : "") + '">' +
-      '<input type="checkbox" class="txn-checkbox" data-id="' + t.id + '" ' + (t.matched ? "checked" : "") + " />" +
+      '<div class="txn-item-full ' + (isResolved ? "txn-matched-full" : "") + '">' +
+      '<input type="checkbox" class="txn-checkbox" data-id="' + t.id + '" data-type="' + (t.category === "direct_credit" ? "settled" : "matched") + '" ' + (isResolved ? "checked" : "") + " />" +
       '<div class="txn-content">' +
       '<div class="txn-left">' +
       '<div class="txn-category-dot" style="background:' + catColor + '"></div>' +
       '<div class="txn-details">' +
-      '<span class="txn-items">' + (t.items || "No details") + "</span>" +
+      '<span class="txn-items">' + itemsDisplay + "</span>" +
       '<span class="txn-meta">' + catLabel + " · " + sourceName + "</span>" +
-      '<span class="txn-meta">' + (t.platform || "") + " · " + dateStr + " · " + timeStr + "</span>" +
+      '<span class="txn-meta">' + dateStr + " · " + timeStr + "</span>" +
       "</div>" +
       "</div>" +
       '<div class="txn-right">' +
       '<span class="txn-amount">₹' + Number(t.amount).toLocaleString("en-IN") + "</span>" +
-      '<div class="txn-actions">' +
-      whatsappBtn +
-      '<button class="delete-btn" data-id="' + t.id + '" title="Delete">🗑️</button>' +
-      "</div>" +
+      '<div class="txn-actions">' + actionBtns + "</div>" +
       "</div>" +
       "</div>" +
       "</div>";
@@ -345,7 +425,21 @@ function applyFilters() {
 
   container.innerHTML = html;
 
-  // WhatsApp button listeners
+  // Edit buttons
+  container.querySelectorAll(".edit-btn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var id = btn.getAttribute("data-id");
+      var allTxns = loadTransactions();
+      for (var i = 0; i < allTxns.length; i++) {
+        if (allTxns[i].id === id) {
+          createAddTransactionModal(null, allTxns[i]);
+          break;
+        }
+      }
+    });
+  });
+
+  // WhatsApp buttons
   container.querySelectorAll(".wa-btn").forEach(function (btn) {
     btn.addEventListener("click", function () {
       var id = btn.getAttribute("data-id");
@@ -376,7 +470,6 @@ function applyFilters() {
       if (!txnToDelete) return;
 
       var confirmMsg = "Delete this transaction?\n\n" +
-        "Item: " + (txnToDelete.items || "No details") + "\n" +
         "Amount: ₹" + Number(txnToDelete.amount).toLocaleString("en-IN") + "\n" +
         "Date: " + new Date(txnToDelete.dateTime).toLocaleDateString("en-IN") + "\n\n" +
         "This cannot be undone.";
@@ -390,7 +483,6 @@ function applyFilters() {
       saveTransactions(updatedTxns);
       updateHomeTotals();
       applyFilters();
-
       alert("Transaction deleted successfully!");
     });
   });
@@ -399,13 +491,20 @@ function applyFilters() {
   container.querySelectorAll(".txn-checkbox").forEach(function (cb) {
     cb.addEventListener("change", function () {
       var id = cb.getAttribute("data-id");
+      var type = cb.getAttribute("data-type");
       var allTxns = loadTransactions();
+
       for (var i = 0; i < allTxns.length; i++) {
         if (allTxns[i].id === id) {
-          allTxns[i].matched = cb.checked;
+          if (type === "settled") {
+            allTxns[i].settled = cb.checked;
+          } else {
+            allTxns[i].matched = cb.checked;
+          }
           break;
         }
       }
+
       saveTransactions(allTxns);
 
       var parentItem = cb.closest(".txn-item-full");
@@ -420,41 +519,56 @@ function applyFilters() {
   });
 }
 
-// ===== ADD TRANSACTION MODAL =====
-function createAddTransactionModal(preSelectedSource) {
+// ===== ADD / EDIT TRANSACTION MODAL =====
+function createAddTransactionModal(preSelectedSource, editTxn) {
   var existing = document.getElementById("addTxnModal");
   if (existing) existing.remove();
 
-  var settings = loadSettings();
+  var sources = loadSources();
   var names = loadNames();
   var platforms = loadPlatforms();
+  var isEdit = editTxn !== null && editTxn !== undefined;
 
   var overlay = document.createElement("div");
   overlay.id = "addTxnModal";
   overlay.className = "modal-overlay";
 
   var sourceOptionsHtml = "";
-  var sourceKeys = Object.keys(settings.sources);
-  for (var i = 0; i < sourceKeys.length; i++) {
-    var key = sourceKeys[i];
-    var selected = key === preSelectedSource ? "selected" : "";
-    sourceOptionsHtml += '<option value="' + key + '" ' + selected + ">" + settings.sources[key] + "</option>";
-  }
+  sources.forEach(function (s) {
+    var selected = "";
+    if (isEdit && editTxn.source === s.id) selected = "selected";
+    else if (!isEdit && preSelectedSource === s.id) selected = "selected";
+    sourceOptionsHtml += '<option value="' + s.id + '" ' + selected + ">" + s.emoji + " " + s.name + "</option>";
+  });
 
   var nameChipsHtml = "";
   for (var i = 0; i < names.length; i++) {
-    nameChipsHtml += '<button type="button" class="chip" data-value="' + names[i] + '">' + names[i] + "</button>";
+    var nameActive = isEdit && editTxn.personName === names[i] ? " chip-active" : "";
+    nameChipsHtml += '<button type="button" class="chip' + nameActive + '" data-value="' + names[i] + '">' + names[i] + "</button>";
   }
 
   var platformChipsHtml = "";
   for (var i = 0; i < platforms.length; i++) {
-    platformChipsHtml += '<button type="button" class="chip" data-value="' + platforms[i] + '">' + platforms[i] + "</button>";
+    var platActive = isEdit && editTxn.platform === platforms[i] ? " chip-active" : "";
+    platformChipsHtml += '<button type="button" class="chip' + platActive + '" data-value="' + platforms[i] + '">' + platforms[i] + "</button>";
   }
+
+  var personValue = isEdit && editTxn.personName ? editTxn.personName : "";
+  var platformValue = isEdit && editTxn.platform ? editTxn.platform : "";
+  var itemsValue = isEdit && editTxn.items ? editTxn.items : "";
+  var amountValue = isEdit ? editTxn.amount : "";
+
+  // Check if person/platform is a custom value (not in presets)
+  var isCustomPerson = isEdit && personValue && names.indexOf(personValue) === -1;
+  var isCustomPlatform = isEdit && platformValue && platforms.indexOf(platformValue) === -1;
+
+  var headerText = isEdit ? "Edit Transaction" : "Add Transaction";
+  var saveText = isEdit ? "Save Changes" : "Save Transaction";
 
   overlay.innerHTML =
     '<div class="modal-box modal-tall">' +
     '<div class="modal-header">' +
-    "<h2>Add Transaction</h2>" +
+    "<h2>" + headerText + "</h2>" +
     '<button class="modal-close" id="closeTxn">✕</button>' +
     "</div>" +
     '<div class="modal-body modal-scroll">' +
@@ -468,25 +582,34 @@ function createAddTransactionModal(preSelectedSource) {
     '<button type="button" class="category-btn" data-cat="household">🏠 Household</button>' +
     '<button type="button" class="category-btn" data-cat="personal_other">👤 Someone\'s Personal</button>' +
     '<button type="button" class="category-btn" data-cat="personal_self">🙋 My Personal</button>' +
+    '<button type="button" class="category-btn" data-cat="direct_credit">🤝 Direct Credit</button>' +
     "</div>" +
     "</div>" +
     '<div class="form-field" id="personField">' +
     "<label>Who asked / For whom</label>" +
     '<div class="chip-container" id="nameChips">' + nameChipsHtml + "</div>" +
-    '<input type="text" id="txnPerson" placeholder="Or type a name..." />' +
+    '<input type="text" id="txnPerson" placeholder="Or type a name..." value="' + (isCustomPerson ? personValue : "") + '" />' +
     "</div>" +
-    '<div class="form-field">' +
+    '<div class="form-field" id="modeField" style="display:none">' +
+    "<label>Mode</label>" +
+    '<div class="mode-grid">' +
+    '<button type="button" class="mode-btn" data-mode="Cash">💵 Cash</button>' +
+    '<button type="button" class="mode-btn" data-mode="UPI">📱 UPI</button>' +
+    '<button type="button" class="mode-btn" data-mode="Bank Transfer">🏦 Bank</button>' +
+    "</div>" +
+    "</div>" +
+    '<div class="form-field" id="platformField">' +
     "<label>Platform</label>" +
     '<div class="chip-container" id="platformChips">' + platformChipsHtml + "</div>" +
-    '<input type="text" id="txnPlatform" placeholder="Or type platform name..." />' +
+    '<input type="text" id="txnPlatform" placeholder="Or type platform name..." value="' + (isCustomPlatform ? platformValue : "") + '" />' +
     "</div>" +
     '<div class="form-field">' +
-    "<label>What was ordered</label>" +
-    '<input type="text" id="txnItems" placeholder="e.g. Milk, Potato, Shampoo" />' +
+    '<label id="itemsLabel">What was ordered</label>' +
+    '<input type="text" id="txnItems" placeholder="e.g. Milk, Potato, Shampoo" value="' + itemsValue + '" />' +
     "</div>" +
     '<div class="form-field">' +
     "<label>Amount (₹)</label>" +
-    '<input type="number" id="txnAmount" placeholder="e.g. 350" inputmode="numeric" />' +
+    '<input type="number" id="txnAmount" placeholder="e.g. 350" inputmode="numeric" value="' + amountValue + '" />' +
     "</div>" +
     '<div class="form-field">' +
     "<label>Date & Time</label>" +
@@ -494,34 +617,94 @@ function createAddTransactionModal(preSelectedSource) {
     "</div>" +
     "</div>" +
     '<div class="modal-footer">' +
-    '<button class="btn-save" id="saveTxn">Save Transaction</button>' +
+    '<button class="btn-save" id="saveTxn">' + saveText + "</button>" +
     "</div>" +
     "</div>";
 
   document.body.appendChild(overlay);
 
-  var now = new Date();
-  var offset = now.getTimezoneOffset() * 60000;
-  var local = new Date(now - offset);
-  document.getElementById("txnDateTime").value = local.toISOString().slice(0, 16);
+  // Set date-time
+  if (isEdit) {
+    var editDate = new Date(editTxn.dateTime);
+    var offset = editDate.getTimezoneOffset() * 60000;
+    var local = new Date(editDate - offset);
+    document.getElementById("txnDateTime").value = local.toISOString().slice(0, 16);
+  } else {
+    var now = new Date();
+    var offset = now.getTimezoneOffset() * 60000;
+    var local = new Date(now - offset);
+    document.getElementById("txnDateTime").value = local.toISOString().slice(0, 16);
+  }
 
-  var selectedCategory = null;
+  // Category selection
+  var selectedCategory = isEdit ? editTxn.category : null;
+  var selectedMode = isEdit && editTxn.mode ? editTxn.mode : null;
+
   var catBtns = overlay.querySelectorAll(".category-btn");
+
+  function updateFieldsForCategory(cat) {
+    var personField = document.getElementById("personField");
+    var platformField = document.getElementById("platformField");
+    var modeField = document.getElementById("modeField");
+    var itemsLabel = document.getElementById("itemsLabel");
+
+    if (cat === "personal_self") {
+      personField.style.display = "none";
+      platformField.style.display = "flex";
+      modeField.style.display = "none";
+      itemsLabel.textContent = "What was ordered";
+    } else if (cat === "direct_credit") {
+      personField.style.display = "flex";
+      platformField.style.display = "none";
+      modeField.style.display = "flex";
+      itemsLabel.textContent = "Note (optional)";
+    } else {
+      personField.style.display = "flex";
+      platformField.style.display = "flex";
+      modeField.style.display = "none";
+      itemsLabel.textContent = "What was ordered";
+    }
+  }
+
+  // Pre-select category if editing
+  if (isEdit) {
+    catBtns.forEach(function (btn) {
+      if (btn.getAttribute("data-cat") === editTxn.category) {
+        btn.classList.add("chip-active");
+      }
+    });
+    updateFieldsForCategory(editTxn.category);
+  }
+
+  // Pre-select mode if editing direct credit
+  if (isEdit && editTxn.mode) {
+    overlay.querySelectorAll(".mode-btn").forEach(function (btn) {
+      if (btn.getAttribute("data-mode") === editTxn.mode) {
+        btn.classList.add("chip-active");
+      }
+    });
+  }
+
   catBtns.forEach(function (btn) {
     btn.addEventListener("click", function () {
       catBtns.forEach(function (b) { b.classList.remove("chip-active"); });
       btn.classList.add("chip-active");
       selectedCategory = btn.getAttribute("data-cat");
-
-      var personField = document.getElementById("personField");
-      if (selectedCategory === "personal_self") {
-        personField.style.display = "none";
-      } else {
-        personField.style.display = "flex";
-      }
+      updateFieldsForCategory(selectedCategory);
     });
   });
 
+  // Mode selection
+  var modeBtns = overlay.querySelectorAll(".mode-btn");
+  modeBtns.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      modeBtns.forEach(function (b) { b.classList.remove("chip-active"); });
+      btn.classList.add("chip-active");
+      selectedMode = btn.getAttribute("data-mode");
+    });
+  });
+
+  // Name chip selection
   var nameChipBtns = overlay.querySelectorAll("#nameChips .chip");
   var txnPersonInput = document.getElementById("txnPerson");
 
@@ -539,6 +722,7 @@ function createAddTransactionModal(preSelectedSource) {
     }
   });
 
+  // Platform chip selection
   var platChipBtns = overlay.querySelectorAll("#platformChips .chip");
   var txnPlatformInput = document.getElementById("txnPlatform");
 
@@ -556,6 +740,7 @@ function createAddTransactionModal(preSelectedSource) {
     }
   });
 
+  // Close
   document.getElementById("closeTxn").addEventListener("click", function () {
     overlay.remove();
   });
@@ -564,6 +749,7 @@ function createAddTransactionModal(preSelectedSource) {
     if (e.target === overlay) overlay.remove();
   });
 
+  // Save
   document.getElementById("saveTxn").addEventListener("click", function () {
     var source = document.getElementById("txnSource").value;
 
@@ -586,27 +772,49 @@ function createAddTransactionModal(preSelectedSource) {
       return;
     }
     if (selectedCategory !== "personal_self" && !personName) {
-      alert("Please enter who asked for this");
+      alert("Please enter who this is for");
+      return;
+    }
+    if (selectedCategory === "direct_credit" && !selectedMode) {
+      alert("Please select a mode (Cash/UPI/Bank)");
       return;
     }
 
     var txn = {
-      id: Date.now().toString(),
+      id: isEdit ? editTxn.id : Date.now().toString(),
       source: source,
       category: selectedCategory,
       personName: selectedCategory === "personal_self" ? "Self" : personName,
-      platform: platform,
+      platform: selectedCategory === "direct_credit" ? "" : platform,
+      mode: selectedCategory === "direct_credit" ? selectedMode : "",
       items: items,
       amount: Number(amount),
       dateTime: dateTime,
-      matched: false
+      matched: isEdit ? editTxn.matched : false,
+      settled: isEdit ? editTxn.settled : false
     };
 
     var transactions = loadTransactions();
-    transactions.push(txn);
-    saveTransactions(transactions);
 
+    if (isEdit) {
+      for (var i = 0; i < transactions.length; i++) {
+        if (transactions[i].id === editTxn.id) {
+          transactions[i] = txn;
+          break;
+        }
+      }
+    } else {
+      transactions.push(txn);
+    }
+
+    saveTransactions(transactions);
     updateHomeTotals();
+
+    // If on all txn screen, refresh filters
+    if (!document.getElementById("allTxnScreen").classList.contains("screen-hidden")) {
+      applyFilters();
+    }
+
     overlay.remove();
   });
 }
@@ -616,7 +824,7 @@ function createSettingsModal() {
   var existing = document.getElementById("settingsModal");
   if (existing) existing.remove();
 
-  var settings = loadSettings();
+  var sources = loadSources();
   var names = loadNames();
   var platforms = loadPlatforms();
 
@@ -624,12 +832,29 @@ function createSettingsModal() {
   overlay.id = "settingsModal";
   overlay.className = "modal-overlay";
 
+  // Sources HTML
+  var sourcesListHtml = "";
+  sources.forEach(function (s, index) {
+    var emojiPickerHtml = "";
+    emojiOptions.forEach(function (em) {
+      var activeClass = em === s.emoji ? " emoji-active" : "";
+      emojiPickerHtml += '<button type="button" class="emoji-option' + activeClass + '" data-emoji="' + em + '">' + em + "</button>";
+    });
+
+    sourcesListHtml +=
+      '<div class="source-edit-item" data-source-index="' + index + '">' +
+      '<div class="source-emoji-picker">' + emojiPickerHtml + "</div>" +
+      '<input type="text" class="source-name-input" value="' + s.name + '" maxlength="20" />' +
+      '<button type="button" class="remove-btn remove-source-btn" data-index="' + index + '">✕</button>' +
+      "</div>";
+  });
+
   var namesListHtml = "";
   for (var i = 0; i < names.length; i++) {
     namesListHtml +=
       '<div class="editable-item">' +
-      '<input type="text" class="edit-name-input" data-index="' + i + '" value="' + names[i] + '" maxlength="20" />' +
-      '<button type="button" class="remove-btn" data-type="name" data-index="' + i + '">✕</button>' +
+      '<input type="text" class="edit-name-input" value="' + names[i] + '" maxlength="20" />' +
+      '<button type="button" class="remove-btn">✕</button>' +
       "</div>";
   }
 
@@ -637,8 +862,8 @@ function createSettingsModal() {
   for (var i = 0; i < platforms.length; i++) {
     platformsListHtml +=
       '<div class="editable-item">' +
-      '<input type="text" class="edit-platform-input" data-index="' + i + '" value="' + platforms[i] + '" maxlength="20" />' +
-      '<button type="button" class="remove-btn" data-type="platform" data-index="' + i + '">✕</button>' +
+      '<input type="text" class="edit-platform-input" value="' + platforms[i] + '" maxlength="20" />' +
+      '<button type="button" class="remove-btn">✕</button>' +
       "</div>";
   }
 
@@ -649,22 +874,11 @@ function createSettingsModal() {
     '<button class="modal-close" id="closeSettings">✕</button>' +
     "</div>" +
     '<div class="modal-body modal-scroll">' +
-    '<h3 class="modal-section-title">Rename Payment Sources</h3>' +
-    '<div class="settings-field">' +
-    "<label>💳 Source 1</label>" +
-    '<input type="text" id="nameCard1" value="' + settings.sources.card1 + '" maxlength="20" />' +
-    "</div>" +
-    '<div class="settings-field">' +
-    "<label>💳 Source 2</label>" +
-    '<input type="text" id="nameCard2" value="' + settings.sources.card2 + '" maxlength="20" />' +
-    "</div>" +
-    '<div class="settings-field">' +
-    "<label>🏦 Source 3</label>" +
-    '<input type="text" id="nameBank" value="' + settings.sources.bank + '" maxlength="20" />' +
-    "</div>" +
-    '<div class="settings-field">' +
-    "<label>👛 Source 4</label>" +
-    '<input type="text" id="nameWallet" value="' + settings.sources.wallet + '" maxlength="20" />' +
+    '<h3 class="modal-section-title">Payment Sources</h3>' +
+    '<div id="sourcesList">' + sourcesListHtml + "</div>" +
+    '<div class="add-new-row">' +
+    '<input type="text" id="newSourceInput" placeholder="Add new source..." maxlength="20" />' +
+    '<button type="button" class="add-btn" id="addSourceBtn">+</button>' +
     "</div>" +
     '<div class="settings-divider"></div>' +
     '<h3 class="modal-section-title">Manage People</h3>' +
@@ -697,19 +911,82 @@ function createSettingsModal() {
 
   document.body.appendChild(overlay);
 
+  // Emoji picker logic
+  function attachEmojiListeners(container) {
+    container.querySelectorAll(".emoji-option").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var picker = btn.closest(".source-emoji-picker");
+        picker.querySelectorAll(".emoji-option").forEach(function (b) {
+          b.classList.remove("emoji-active");
+        });
+        btn.classList.add("emoji-active");
+      });
+    });
+  }
+
+  attachEmojiListeners(overlay);
+
+  // Remove source buttons
+  function attachRemoveSourceListeners() {
+    overlay.querySelectorAll(".remove-source-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var list = document.getElementById("sourcesList");
+        if (list.querySelectorAll(".source-edit-item").length <= 1) {
+          alert("You need at least one payment source");
+          return;
+        }
+        btn.closest(".source-edit-item").remove();
+      });
+    });
+  }
+
+  attachRemoveSourceListeners();
+
+  // Add new source
+  document.getElementById("addSourceBtn").addEventListener("click", function () {
+    var input = document.getElementById("newSourceInput");
+    var val = input.value.trim();
+    if (!val) return;
+
+    var emojiPickerHtml = "";
+    emojiOptions.forEach(function (em, idx) {
+      var activeClass = idx === 0 ? " emoji-active" : "";
+      emojiPickerHtml += '<button type="button" class="emoji-option' + activeClass + '" data-emoji="' + em + '">' + em + "</button>";
+    });
+
+    var sourcesList = document.getElementById("sourcesList");
+    var newItem = document.createElement("div");
+    newItem.className = "source-edit-item";
+    newItem.innerHTML =
+      '<div class="source-emoji-picker">' + emojiPickerHtml + "</div>" +
+      '<input type="text" class="source-name-input" value="' + val + '" maxlength="20" />' +
+      '<button type="button" class="remove-btn remove-source-btn">✕</button>';
+    sourcesList.appendChild(newItem);
+    input.value = "";
+
+    attachEmojiListeners(newItem);
+    newItem.querySelector(".remove-source-btn").addEventListener("click", function () {
+      var list = document.getElementById("sourcesList");
+      if (list.querySelectorAll(".source-edit-item").length <= 1) {
+        alert("You need at least one payment source");
+        return;
+      }
+      newItem.remove();
+    });
+  });
+
+  // Add new name
   document.getElementById("addNameBtn").addEventListener("click", function () {
     var input = document.getElementById("newNameInput");
     var val = input.value.trim();
     if (!val) return;
 
     var namesList = document.getElementById("namesList");
-    var currentCount = namesList.querySelectorAll(".editable-item").length;
-
     var newItem = document.createElement("div");
     newItem.className = "editable-item";
     newItem.innerHTML =
-      '<input type="text" class="edit-name-input" data-index="' + currentCount + '" value="' + val + '" maxlength="20" />' +
-      '<button type="button" class="remove-btn" data-type="name" data-index="' + currentCount + '">✕</button>';
+      '<input type="text" class="edit-name-input" value="' + val + '" maxlength="20" />' +
+      '<button type="button" class="remove-btn">✕</button>';
     namesList.appendChild(newItem);
     input.value = "";
 
@@ -718,19 +995,18 @@ function createSettingsModal() {
     });
   });
 
+  // Add new platform
   document.getElementById("addPlatformBtn").addEventListener("click", function () {
     var input = document.getElementById("newPlatformInput");
     var val = input.value.trim();
     if (!val) return;
 
     var platformsList = document.getElementById("platformsList");
-    var currentCount = platformsList.querySelectorAll(".editable-item").length;
-
     var newItem = document.createElement("div");
     newItem.className = "editable-item";
     newItem.innerHTML =
-      '<input type="text" class="edit-platform-input" data-index="' + currentCount + '" value="' + val + '" maxlength="20" />' +
-      '<button type="button" class="remove-btn" data-type="platform" data-index="' + currentCount + '">✕</button>';
+      '<input type="text" class="edit-platform-input" value="' + val + '" maxlength="20" />' +
+      '<button type="button" class="remove-btn">✕</button>';
     platformsList.appendChild(newItem);
     input.value = "";
 
@@ -739,7 +1015,8 @@ function createSettingsModal() {
     });
   });
 
-  overlay.querySelectorAll(".remove-btn").forEach(function (btn) {
+  // Remove buttons for existing names/platforms
+  overlay.querySelectorAll("#namesList .remove-btn, #platformsList .remove-btn").forEach(function (btn) {
     btn.addEventListener("click", function () {
       btn.closest(".editable-item").remove();
     });
@@ -748,7 +1025,7 @@ function createSettingsModal() {
   // Export
   document.getElementById("exportBtn").addEventListener("click", function () {
     var data = {
-      settings: loadSettings(),
+      sources: loadSources(),
       names: loadNames(),
       platforms: loadPlatforms(),
       transactions: loadTransactions(),
@@ -784,7 +1061,7 @@ function createSettingsModal() {
       try {
         var data = JSON.parse(event.target.result);
 
-        if (!data.transactions || !data.settings) {
+        if (!data.transactions) {
           alert("Invalid backup file");
           return;
         }
@@ -796,23 +1073,37 @@ function createSettingsModal() {
 
         if (!confirm(confirmMsg)) return;
 
-        saveSettings(data.settings);
-        saveNames(data.names || defaultNames.slice());
-        savePlatforms(data.platforms || defaultPlatforms.slice());
+        if (data.sources) saveSources(data.sources);
+        if (data.names) saveNames(data.names);
+        if (data.platforms) savePlatforms(data.platforms);
         saveTransactions(data.transactions);
 
-        applySourceNames();
+        // Handle old format settings
+        if (data.settings && !data.sources) {
+          var oldSources = [];
+          var keys = Object.keys(data.settings.sources);
+          var defaultEmojis = { card1: "💳", card2: "💳", bank: "🏦", wallet: "👛" };
+          keys.forEach(function (k) {
+            oldSources.push({
+              id: k,
+              emoji: defaultEmojis[k] || "💳",
+              name: data.settings.sources[k]
+            });
+          });
+          saveSources(oldSources);
+        }
+
         updateHomeTotals();
         overlay.remove();
-
         alert("Backup restored successfully!");
       } catch (err) {
-        alert("Error reading backup file. Make sure it is a valid Krrish's Khaata backup.");
+        alert("Error reading backup file.");
       }
     };
     reader.readAsText(file);
   });
 
+  // Close
   document.getElementById("closeSettings").addEventListener("click", function () {
     overlay.remove();
   });
@@ -821,14 +1112,29 @@ function createSettingsModal() {
     if (e.target === overlay) overlay.remove();
   });
 
+  // Save all
   document.getElementById("saveSettings").addEventListener("click", function () {
-    var newSettings = loadSettings();
-    newSettings.sources.card1 = document.getElementById("nameCard1").value.trim() || "Card 1";
-    newSettings.sources.card2 = document.getElementById("nameCard2").value.trim() || "Card 2";
-    newSettings.sources.bank = document.getElementById("nameBank").value.trim() || "Direct Bank";
-    newSettings.sources.wallet = document.getElementById("nameWallet").value.trim() || "Wallet";
-    saveSettings(newSettings);
+    // Save sources
+    var newSources = [];
+    var sourceItems = document.querySelectorAll(".source-edit-item");
+    var existingSources = loadSources();
 
+    sourceItems.forEach(function (item, index) {
+      var activeEmoji = item.querySelector(".emoji-active");
+      var emoji = activeEmoji ? activeEmoji.getAttribute("data-emoji") : "💳";
+      var name = item.querySelector(".source-name-input").value.trim() || "Source";
+      var existingId = existingSources[index] ? existingSources[index].id : "source_" + Date.now() + "_" + index;
+
+      newSources.push({
+        id: existingId,
+        emoji: emoji,
+        name: name
+      });
+    });
+
+    saveSources(newSources);
+
+    // Save names
     var nameInputs = document.querySelectorAll(".edit-name-input");
     var newNames = [];
     nameInputs.forEach(function (inp) {
@@ -837,6 +1143,7 @@ function createSettingsModal() {
     });
     saveNames(newNames);
 
+    // Save platforms
     var platInputs = document.querySelectorAll(".edit-platform-input");
     var newPlatforms = [];
     platInputs.forEach(function (inp) {
@@ -845,7 +1152,7 @@ function createSettingsModal() {
     });
     savePlatforms(newPlatforms);
 
-    applySourceNames();
+    updateHomeTotals();
     overlay.remove();
   });
 }
@@ -855,7 +1162,7 @@ function createSummaryModal() {
   var existing = document.getElementById("summaryModal");
   if (existing) existing.remove();
 
-  var settings = loadSettings();
+  var sources = loadSources();
   var transactions = loadTransactions();
 
   var overlay = document.createElement("div");
@@ -923,6 +1230,7 @@ function createSummaryModal() {
     var householdTotal = 0;
     var personalOtherTotal = 0;
     var personalSelfTotal = 0;
+    var directCreditTotal = 0;
     var grandTotal = 0;
 
     filtered.forEach(function (t) {
@@ -931,11 +1239,11 @@ function createSummaryModal() {
       if (t.category === "household") householdTotal += amt;
       else if (t.category === "personal_other") personalOtherTotal += amt;
       else if (t.category === "personal_self") personalSelfTotal += amt;
+      else if (t.category === "direct_credit") directCreditTotal += amt;
     });
 
     var sourceTotals = {};
-    var sKeys = Object.keys(settings.sources);
-    sKeys.forEach(function (k) { sourceTotals[k] = 0; });
+    sources.forEach(function (s) { sourceTotals[s.id] = 0; });
 
     filtered.forEach(function (t) {
       if (sourceTotals.hasOwnProperty(t.source)) {
@@ -951,15 +1259,35 @@ function createSummaryModal() {
       }
     });
 
+    // Direct credit person-wise
+    var creditPersonTotals = {};
+    var creditPersonSettled = {};
+    filtered.forEach(function (t) {
+      if (t.category === "direct_credit" && t.personName) {
+        if (!creditPersonTotals[t.personName]) {
+          creditPersonTotals[t.personName] = 0;
+          creditPersonSettled[t.personName] = 0;
+        }
+        creditPersonTotals[t.personName] += Number(t.amount);
+        if (t.settled) creditPersonSettled[t.personName] += Number(t.amount);
+      }
+    });
+
     var matchedCount = 0;
     var unmatchedCount = 0;
     filtered.forEach(function (t) {
-      if (t.matched) matchedCount++;
-      else unmatchedCount++;
+      if (t.category === "direct_credit") {
+        if (t.settled) matchedCount++;
+        else unmatchedCount++;
+      } else {
+        if (t.matched) matchedCount++;
+        else unmatchedCount++;
+      }
     });
 
     var html = "";
 
+    // Category breakdown
     html +=
       '<div class="summary-block">' +
       '<div class="summary-block-title">Category Breakdown</div>' +
@@ -975,27 +1303,34 @@ function createSummaryModal() {
       '<span class="summary-line-label">🙋 My Personal</span>' +
       '<span class="summary-line-value">₹' + personalSelfTotal.toLocaleString("en-IN") + "</span>" +
       "</div>" +
+      '<div class="summary-line">' +
+      '<span class="summary-line-label">🤝 Direct Credit</span>' +
+      '<span class="summary-line-value">₹' + directCreditTotal.toLocaleString("en-IN") + "</span>" +
+      "</div>" +
       '<div class="summary-line summary-line-total">' +
-      '<span class="summary-line-label">Total Spent</span>' +
+      '<span class="summary-line-label">Total</span>' +
       '<span class="summary-line-value">₹' + grandTotal.toLocaleString("en-IN") + "</span>" +
       "</div>" +
       "</div>";
 
+    // Source breakdown
     html += '<div class="summary-block">' +
       '<div class="summary-block-title">Source Breakdown</div>';
-    sKeys.forEach(function (k) {
+    sources.forEach(function (s) {
+      var val = sourceTotals[s.id] || 0;
       html +=
         '<div class="summary-line">' +
-        '<span class="summary-line-label">' + settings.sources[k] + "</span>" +
-        '<span class="summary-line-value">₹' + sourceTotals[k].toLocaleString("en-IN") + "</span>" +
+        '<span class="summary-line-label">' + s.emoji + " " + s.name + "</span>" +
+        '<span class="summary-line-value">₹' + val.toLocaleString("en-IN") + "</span>" +
         "</div>";
     });
     html += "</div>";
 
+    // Person-wise collect
     var personNames = Object.keys(personTotals);
     if (personNames.length > 0) {
       html += '<div class="summary-block">' +
-        '<div class="summary-block-title">Collect from Others</div>';
+        '<div class="summary-block-title">Collect for Orders</div>';
       personNames.forEach(function (name) {
         html +=
           '<div class="summary-line">' +
@@ -1011,6 +1346,31 @@ function createSummaryModal() {
         "</div>";
     }
 
+    // Direct credits
+    var creditNames = Object.keys(creditPersonTotals);
+    if (creditNames.length > 0) {
+      var totalUnsettled = 0;
+      html += '<div class="summary-block">' +
+        '<div class="summary-block-title">Money Lent</div>';
+      creditNames.forEach(function (name) {
+        var unsettled = creditPersonTotals[name] - creditPersonSettled[name];
+        totalUnsettled += unsettled;
+        var statusLabel = unsettled > 0 ? " (₹" + unsettled.toLocaleString("en-IN") + " unsettled)" : " (settled)";
+        html +=
+          '<div class="summary-line">' +
+          '<span class="summary-line-label">🤝 ' + name + statusLabel + "</span>" +
+          '<span class="summary-line-value summary-line-owe">₹' + creditPersonTotals[name].toLocaleString("en-IN") + "</span>" +
+          "</div>";
+      });
+      html +=
+        '<div class="summary-line summary-line-total">' +
+        '<span class="summary-line-label">Total Unsettled</span>' +
+        '<span class="summary-line-value summary-line-owe">₹' + totalUnsettled.toLocaleString("en-IN") + "</span>" +
+        "</div>" +
+        "</div>";
+    }
+
+    // Father amount
     html +=
       '<div class="summary-block">' +
       '<div class="summary-block-title">Amount to Ask from Father</div>' +
@@ -1024,15 +1384,16 @@ function createSummaryModal() {
       "</div>" +
       "</div>";
 
+    // Matching status
     html +=
       '<div class="summary-block">' +
-      '<div class="summary-block-title">Statement Matching</div>' +
+      '<div class="summary-block-title">Reconciliation Status</div>' +
       '<div class="summary-line">' +
-      '<span class="summary-line-label">✅ Matched</span>' +
+      '<span class="summary-line-label">✅ Matched / Settled</span>' +
       '<span class="summary-line-value">' + matchedCount + "</span>" +
       "</div>" +
       '<div class="summary-line">' +
-      '<span class="summary-line-label">⚠️ Unmatched</span>' +
+      '<span class="summary-line-label">⚠️ Pending</span>' +
       '<span class="summary-line-value summary-line-owe">' + unmatchedCount + "</span>" +
       "</div>" +
       '<div class="summary-line">' +
@@ -1061,7 +1422,25 @@ function createSummaryModal() {
 
 // ===== INIT =====
 document.addEventListener("DOMContentLoaded", function () {
-  applySourceNames();
+  // Migrate old settings format to new sources format
+  var oldSettings = localStorage.getItem("kk_settings");
+  var existingSources = localStorage.getItem("kk_sources");
+
+  if (oldSettings && !existingSources) {
+    var settings = JSON.parse(oldSettings);
+    var defaultEmojis = { card1: "💳", card2: "💳", bank: "🏦", wallet: "👛" };
+    var migratedSources = [];
+    var keys = Object.keys(settings.sources);
+    keys.forEach(function (k) {
+      migratedSources.push({
+        id: k,
+        emoji: defaultEmojis[k] || "💳",
+        name: settings.sources[k]
+      });
+    });
+    saveSources(migratedSources);
+  }
+
   updateHomeTotals();
 
   document.getElementById("settingsBtn").addEventListener("click", function () {
@@ -1073,15 +1452,7 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
   document.getElementById("fabBtn").addEventListener("click", function () {
-    createAddTransactionModal(null);
-  });
-
-  var sourceCards = document.querySelectorAll(".source-card");
-  sourceCards.forEach(function (card) {
-    card.addEventListener("click", function () {
-      var source = card.getAttribute("data-source");
-      createAddTransactionModal(source);
-    });
+    createAddTransactionModal(null, null);
   });
 
   document.getElementById("viewAllBtn").addEventListener("click", function () {
