@@ -75,8 +75,17 @@
           <div class="header-top">
             <button class="back-btn" id="backToHome">← Back</button>
             <h1>All Transactions</h1>
+            <button class="header-icon-btn" id="calcModeBtn" title="Calculator">🧮</button>
           </div>
         </header>
+
+        <section class="search-section">
+          <div class="search-bar">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="searchInput" placeholder="Search by name, item, amount, platform..." />
+            <button class="search-clear" id="searchClear">✕</button>
+          </div>
+        </section>
 
         <section class="filter-section">
           <div class="filter-row">
@@ -135,6 +144,15 @@
         <section class="txn-list-section">
           <div id="allTxnList"></div>
         </section>
+
+        <!-- Calculator Mode Floating Bar -->
+        <div id="calcBar" class="calc-bar calc-bar-hidden">
+          <div class="calc-bar-info">
+            <span id="calcCount">0 selected</span>
+            <span id="calcTotal" class="calc-total">₹0</span>
+          </div>
+          <button class="calc-done-btn" id="calcDoneBtn">Done</button>
+        </div>
       </div>
 
     </div>
