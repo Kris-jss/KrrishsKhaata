@@ -710,6 +710,75 @@ select {
   background: rgba(255, 255, 255, 0.3);
 }
 
+/* ===== SEARCH SECTION ===== */
+.search-section {
+  background: var(--color-white);
+  border-radius: var(--radius-lg);
+  padding: 12px 16px;
+  box-shadow: 0 6px 18px var(--color-shadow);
+  border: 1px solid rgba(142, 182, 155, 0.3);
+  margin-top: 16px;
+}
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--color-bg);
+  border: 2px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  transition: border-color 0.2s ease;
+}
+
+.search-bar:focus-within {
+  border-color: var(--color-secondary);
+}
+
+.search-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.search-bar input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-text);
+  padding: 0;
+}
+
+.search-bar input::placeholder {
+  color: var(--color-text-light);
+  opacity: 0.7;
+}
+
+.search-clear {
+  background: rgba(142, 182, 155, 0.3);
+  color: var(--color-text-light);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.2s ease;
+  visibility: hidden;
+}
+
+.search-clear.visible {
+  visibility: visible;
+}
+
+.search-clear:active {
+  background: rgba(142, 182, 155, 0.5);
+}
+
 /* ===== FILTER SECTION ===== */
 .filter-section {
   background: var(--color-white);
@@ -720,7 +789,7 @@ select {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin-top: 16px;
+  margin-top: 12px;
 }
 
 .filter-row {
@@ -1074,6 +1143,84 @@ select {
   background: var(--color-primary);
   color: var(--color-white);
   border-color: var(--color-primary);
+}
+
+/* ===== CALCULATOR MODE ===== */
+.calc-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-light));
+  color: var(--color-white);
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 -4px 20px var(--color-shadow-strong);
+  z-index: 150;
+  animation: slideUp 0.3s ease;
+}
+
+.calc-bar-hidden {
+  display: none;
+}
+
+.calc-bar-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.calc-bar-info span:first-child {
+  font-size: 0.82rem;
+  opacity: 0.9;
+  font-weight: 500;
+}
+
+.calc-total {
+  font-size: 1.4rem;
+  font-weight: 800;
+}
+
+.calc-done-btn {
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--color-white);
+  padding: 10px 24px;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.calc-done-btn:active {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.calc-select {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--color-accent);
+  background: var(--color-white);
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-top: 4px;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.calc-select.calc-selected {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+/* ===== MULTI SELECT NAMES HINT ===== */
+.multi-hint {
+  font-size: 0.75rem;
+  color: var(--color-text-light);
+  opacity: 0.8;
+  font-style: italic;
 }
 
 @media (min-width: 640px) {
