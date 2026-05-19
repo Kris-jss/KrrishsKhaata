@@ -51,7 +51,6 @@ function saveTransactions(transactions) {
   localStorage.setItem("kk_transactions", JSON.stringify(transactions));
 }
 
-// ===== HELPER: Get source name by id =====
 function getSourceName(sourceId) {
   var sources = loadSources();
   for (var i = 0; i < sources.length; i++) {
@@ -68,6 +67,50 @@ function getSourceEmoji(sourceId) {
   return "💳";
 }
 
+// ===== CALCULATOR MODE STATE =====
+var calcMode = false;
+var calcSelectedIds = [];
+
+function toggleCalcMode() {
+  calcMode = !calcMode;
+  calcSelectedIds = [];
+  updateCalcBar();
+  applyFilters();
+
+  var calcBtn = document.getElementById("calcModeBtn");
+  if (calcMode) {
+    calcBtn.style.background = "rgba(255,255,255,0.4)";
+  } else {
+    calcBtn.style.background = "rgba(255,255,255,0.15)";
+  }
+}
+
+function updateCalcBar() {
+  var bar = document.getElementById("calcBar");
+  if (!calcMode) {
+    bar.classList.add("calc-bar-hidden");
+    return;
+  }
+  bar.classList.remove("calc-bar-hidden");
+
+  var transactions = loadTransactions();
+  var total = 0;
+  var count = 0;
+
+  calcSelectedIds.forEach(function (id) {
+    for (var i = 0; i < transactions.length; i++) {
+      if (transactions[i].id === id) {
+        total += Number(transactions[i].amount);
+        count++;
+        break;
+      }
+    }
+  });
+
+  document.getElementById("calcCount").textContent = count + " selected";
+  document.getElementById("calcTotal").textContent = "₹" + total.toLocaleString("en-IN");
+}
+
 // ===== WHATSAPP REMIND =====
 function sendWhatsAppReminder(txn) {
   var d = new Date(txn.dateTime);
@@ -80,7 +123,15 @@ function sendWhatsAppReminder(txn) {
     message = "Hey " + name + ", I had lent you ₹" + amount + " on " + dateStr + ". Kindly settle when convenient 🙂";
   } else {
     var items = txn.items || "an item";
-    message = "Hey " + name + ", you had asked me to order " + items + " on " + dateStr + ". The amount for it was ₹" + amount + ". Please settle when convenient 🙏";
+    // Handle multi-person
+    var names = name.split(", ");
+    if (names.length > 1) {
+      var firstName = names[0];
+      var others = names.slice(1).join(", ");
+      message = "Hey " + firstName + ", you and " + others + " asked me to order " + items + " on " + dateStr + ". The amount for it was ₹" + amount + ". Please settle when convenient 🙏";
+    } else {
+      message = "Hey " + name + ", you had asked me to order " + items + " on " + dateStr + ". The amount for it was ₹" + amount + ". Please settle when convenient 🙏";
+    }
   }
 
   var url = "https://wa.me/?text=" + encodeURIComponent(message);
@@ -101,9 +152,7 @@ function renderSourceGrid() {
   });
 
   var sourceTotals = {};
-  sources.forEach(function (s) {
-    sourceTotals[s.id] = 0;
-  });
+  sources.forEach(function (s) { sourceTotals[s.id] = 0; });
 
   thisMonth.forEach(function (t) {
     if (sourceTotals.hasOwnProperty(t.source)) {
@@ -125,7 +174,6 @@ function renderSourceGrid() {
 
   grid.innerHTML = html;
 
-  // Re-attach click listeners
   grid.querySelectorAll(".source-card").forEach(function (card) {
     card.addEventListener("click", function () {
       var source = card.getAttribute("data-source");
@@ -147,9 +195,7 @@ function updateHomeTotals() {
   });
 
   var monthTotal = 0;
-  thisMonth.forEach(function (t) {
-    monthTotal += Number(t.amount);
-  });
+  thisMonth.forEach(function (t) { monthTotal += Number(t.amount); });
 
   document.getElementById("monthTotal").textContent = "₹" + monthTotal.toLocaleString("en-IN");
   document.getElementById("monthCount").textContent = thisMonth.length;
@@ -192,8 +238,8 @@ function updateRecentList(transactions) {
   });
 
   var recent = sorted.slice(0, 5);
-
   var html = "";
+
   recent.forEach(function (t) {
     var d = new Date(t.dateTime);
     var dateStr = d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
@@ -213,13 +259,6 @@ function updateRecentList(transactions) {
       actionBtns += '<button class="wa-btn" data-id="' + t.id + '" title="Remind via WhatsApp">💬</button>';
     }
 
-    var statusText = "";
-    if (t.category === "direct_credit") {
-      statusText = t.settled ? " · Settled" : " · Unsettled";
-    } else {
-      statusText = t.matched ? " · Matched" : "";
-    }
-
     var isResolved = t.category === "direct_credit" ? t.settled : t.matched;
 
     html +=
@@ -228,7 +267,7 @@ function updateRecentList(transactions) {
       '<div class="txn-category-dot" style="background:' + catColor + '"></div>' +
       '<div class="txn-details">' +
       '<span class="txn-items">' + itemsDisplay + "</span>" +
-      '<span class="txn-meta">' + catLabel + " · " + sourceName + statusText + "</span>" +
+      '<span class="txn-meta">' + catLabel + " · " + sourceName + "</span>" +
       '<span class="txn-meta">' + dateStr + " · " + timeStr + "</span>" +
       "</div>" +
       "</div>" +
@@ -241,7 +280,6 @@ function updateRecentList(transactions) {
 
   container.innerHTML = html;
 
-  // Edit buttons
   container.querySelectorAll(".edit-btn").forEach(function (btn) {
     btn.addEventListener("click", function (e) {
       e.stopPropagation();
@@ -256,7 +294,6 @@ function updateRecentList(transactions) {
     });
   });
 
-  // WhatsApp buttons
   container.querySelectorAll(".wa-btn").forEach(function (btn) {
     btn.addEventListener("click", function (e) {
       e.stopPropagation();
@@ -281,6 +318,15 @@ function showScreen(screenId) {
 
 // ===== ALL TRANSACTIONS SCREEN =====
 function openAllTransactions() {
+  calcMode = false;
+  calcSelectedIds = [];
+  updateCalcBar();
+  var calcBtn = document.getElementById("calcModeBtn");
+  calcBtn.style.background = "rgba(255,255,255,0.15)";
+
+  document.getElementById("searchInput").value = "";
+  document.getElementById("searchClear").classList.remove("visible");
+
   showScreen("allTxnScreen");
   populateFilters();
   applyFilters();
@@ -302,12 +348,9 @@ function populateFilters() {
   var now = new Date();
   var currentKey = now.getFullYear() + "-" + String(now.getMonth()).padStart(2, "0");
   var currentLabel = now.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
-  if (!months[currentKey]) {
-    months[currentKey] = currentLabel;
-  }
+  if (!months[currentKey]) months[currentKey] = currentLabel;
 
   var sortedKeys = Object.keys(months).sort().reverse();
-
   var monthHtml = '<option value="all">All Months</option>';
   sortedKeys.forEach(function (key) {
     var sel = key === currentKey ? "selected" : "";
@@ -325,6 +368,7 @@ function populateFilters() {
 
 function applyFilters() {
   var transactions = loadTransactions();
+  var searchVal = (document.getElementById("searchInput").value || "").trim().toLowerCase();
 
   var monthVal = document.getElementById("filterMonth").value;
   var sourceVal = document.getElementById("filterSource").value;
@@ -347,6 +391,20 @@ function applyFilters() {
     if (statusVal === "unmatched") {
       if (t.category === "direct_credit" && t.settled) return false;
       if (t.category !== "direct_credit" && t.matched) return false;
+    }
+
+    // Search
+    if (searchVal) {
+      var haystack = [
+        t.personName || "",
+        t.items || "",
+        t.platform || "",
+        t.mode || "",
+        String(t.amount),
+        getSourceName(t.source)
+      ].join(" ").toLowerCase();
+
+      if (haystack.indexOf(searchVal) === -1) return false;
     }
 
     return true;
@@ -395,128 +453,162 @@ function applyFilters() {
     }
 
     var isResolved = t.category === "direct_credit" ? t.settled : t.matched;
-    var checkboxLabel = t.category === "direct_credit" ? "Settled" : "Matched";
 
-    var actionBtns = '<button class="edit-btn" data-id="' + t.id + '" title="Edit">✏️</button>';
-    if (t.category === "personal_other" || t.category === "direct_credit") {
-      actionBtns += '<button class="wa-btn" data-id="' + t.id + '" title="Remind">💬</button>';
+    if (calcMode) {
+      var isCalcSelected = calcSelectedIds.indexOf(t.id) !== -1;
+      html +=
+        '<div class="txn-item-full" data-calc-id="' + t.id + '">' +
+        '<div class="calc-select ' + (isCalcSelected ? "calc-selected" : "") + '" data-id="' + t.id + '"></div>' +
+        '<div class="txn-content">' +
+        '<div class="txn-left">' +
+        '<div class="txn-category-dot" style="background:' + catColor + '"></div>' +
+        '<div class="txn-details">' +
+        '<span class="txn-items">' + itemsDisplay + "</span>" +
+        '<span class="txn-meta">' + catLabel + " · " + sourceName + "</span>" +
+        '<span class="txn-meta">' + dateStr + " · " + timeStr + "</span>" +
+        "</div>" +
+        "</div>" +
+        '<div class="txn-right">' +
+        '<span class="txn-amount">₹' + Number(t.amount).toLocaleString("en-IN") + "</span>" +
+        "</div>" +
+        "</div>" +
+        "</div>";
+    } else {
+      var actionBtns = '<button class="edit-btn" data-id="' + t.id + '" title="Edit">✏️</button>';
+      if (t.category === "personal_other" || t.category === "direct_credit") {
+        actionBtns += '<button class="wa-btn" data-id="' + t.id + '" title="Remind">💬</button>';
+      }
+      actionBtns += '<button class="delete-btn" data-id="' + t.id + '" title="Delete">🗑️</button>';
+
+      html +=
+        '<div class="txn-item-full ' + (isResolved ? "txn-matched-full" : "") + '">' +
+        '<input type="checkbox" class="txn-checkbox" data-id="' + t.id + '" data-type="' + (t.category === "direct_credit" ? "settled" : "matched") + '" ' + (isResolved ? "checked" : "") + " />" +
+        '<div class="txn-content">' +
+        '<div class="txn-left">' +
+        '<div class="txn-category-dot" style="background:' + catColor + '"></div>' +
+        '<div class="txn-details">' +
+        '<span class="txn-items">' + itemsDisplay + "</span>" +
+        '<span class="txn-meta">' + catLabel + " · " + sourceName + "</span>" +
+        '<span class="txn-meta">' + dateStr + " · " + timeStr + "</span>" +
+        "</div>" +
+        "</div>" +
+        '<div class="txn-right">' +
+        '<span class="txn-amount">₹' + Number(t.amount).toLocaleString("en-IN") + "</span>" +
+        '<div class="txn-actions">' + actionBtns + "</div>" +
+        "</div>" +
+        "</div>" +
+        "</div>";
     }
-    actionBtns += '<button class="delete-btn" data-id="' + t.id + '" title="Delete">🗑️</button>';
-
-    html +=
-      '<div class="txn-item-full ' + (isResolved ? "txn-matched-full" : "") + '">' +
-      '<input type="checkbox" class="txn-checkbox" data-id="' + t.id + '" data-type="' + (t.category === "direct_credit" ? "settled" : "matched") + '" ' + (isResolved ? "checked" : "") + " />" +
-      '<div class="txn-content">' +
-      '<div class="txn-left">' +
-      '<div class="txn-category-dot" style="background:' + catColor + '"></div>' +
-      '<div class="txn-details">' +
-      '<span class="txn-items">' + itemsDisplay + "</span>" +
-      '<span class="txn-meta">' + catLabel + " · " + sourceName + "</span>" +
-      '<span class="txn-meta">' + dateStr + " · " + timeStr + "</span>" +
-      "</div>" +
-      "</div>" +
-      '<div class="txn-right">' +
-      '<span class="txn-amount">₹' + Number(t.amount).toLocaleString("en-IN") + "</span>" +
-      '<div class="txn-actions">' + actionBtns + "</div>" +
-      "</div>" +
-      "</div>" +
-      "</div>";
   });
 
   container.innerHTML = html;
 
-  // Edit buttons
-  container.querySelectorAll(".edit-btn").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      var id = btn.getAttribute("data-id");
-      var allTxns = loadTransactions();
-      for (var i = 0; i < allTxns.length; i++) {
-        if (allTxns[i].id === id) {
-          createAddTransactionModal(null, allTxns[i]);
-          break;
+  if (calcMode) {
+    container.querySelectorAll(".calc-select").forEach(function (dot) {
+      dot.addEventListener("click", function () {
+        var id = dot.getAttribute("data-id");
+        var idx = calcSelectedIds.indexOf(id);
+        if (idx === -1) {
+          calcSelectedIds.push(id);
+          dot.classList.add("calc-selected");
+        } else {
+          calcSelectedIds.splice(idx, 1);
+          dot.classList.remove("calc-selected");
         }
-      }
-    });
-  });
-
-  // WhatsApp buttons
-  container.querySelectorAll(".wa-btn").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      var id = btn.getAttribute("data-id");
-      var allTxns = loadTransactions();
-      for (var i = 0; i < allTxns.length; i++) {
-        if (allTxns[i].id === id) {
-          sendWhatsAppReminder(allTxns[i]);
-          break;
-        }
-      }
-    });
-  });
-
-  // Delete buttons
-  container.querySelectorAll(".delete-btn").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      var id = btn.getAttribute("data-id");
-      var allTxns = loadTransactions();
-      var txnToDelete = null;
-
-      for (var i = 0; i < allTxns.length; i++) {
-        if (allTxns[i].id === id) {
-          txnToDelete = allTxns[i];
-          break;
-        }
-      }
-
-      if (!txnToDelete) return;
-
-      var confirmMsg = "Delete this transaction?\n\n" +
-        "Amount: ₹" + Number(txnToDelete.amount).toLocaleString("en-IN") + "\n" +
-        "Date: " + new Date(txnToDelete.dateTime).toLocaleDateString("en-IN") + "\n\n" +
-        "This cannot be undone.";
-
-      if (!confirm(confirmMsg)) return;
-
-      var updatedTxns = allTxns.filter(function (t) {
-        return t.id !== id;
+        updateCalcBar();
       });
-
-      saveTransactions(updatedTxns);
-      updateHomeTotals();
-      applyFilters();
-      alert("Transaction deleted successfully!");
     });
-  });
-
-  // Checkbox listeners
-  container.querySelectorAll(".txn-checkbox").forEach(function (cb) {
-    cb.addEventListener("change", function () {
-      var id = cb.getAttribute("data-id");
-      var type = cb.getAttribute("data-type");
-      var allTxns = loadTransactions();
-
-      for (var i = 0; i < allTxns.length; i++) {
-        if (allTxns[i].id === id) {
-          if (type === "settled") {
-            allTxns[i].settled = cb.checked;
-          } else {
-            allTxns[i].matched = cb.checked;
+  } else {
+    // Edit buttons
+    container.querySelectorAll(".edit-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var id = btn.getAttribute("data-id");
+        var allTxns = loadTransactions();
+        for (var i = 0; i < allTxns.length; i++) {
+          if (allTxns[i].id === id) {
+            createAddTransactionModal(null, allTxns[i]);
+            break;
           }
-          break;
         }
-      }
-
-      saveTransactions(allTxns);
-
-      var parentItem = cb.closest(".txn-item-full");
-      if (cb.checked) {
-        parentItem.classList.add("txn-matched-full");
-      } else {
-        parentItem.classList.remove("txn-matched-full");
-      }
-
-      applyFilters();
+      });
     });
-  });
+
+    // WhatsApp buttons
+    container.querySelectorAll(".wa-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var id = btn.getAttribute("data-id");
+        var allTxns = loadTransactions();
+        for (var i = 0; i < allTxns.length; i++) {
+          if (allTxns[i].id === id) {
+            sendWhatsAppReminder(allTxns[i]);
+            break;
+          }
+        }
+      });
+    });
+
+    // Delete buttons
+    container.querySelectorAll(".delete-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var id = btn.getAttribute("data-id");
+        var allTxns = loadTransactions();
+        var txnToDelete = null;
+
+        for (var i = 0; i < allTxns.length; i++) {
+          if (allTxns[i].id === id) {
+            txnToDelete = allTxns[i];
+            break;
+          }
+        }
+
+        if (!txnToDelete) return;
+
+        var confirmMsg = "Delete this transaction?\n\n" +
+          "Amount: ₹" + Number(txnToDelete.amount).toLocaleString("en-IN") + "\n" +
+          "Date: " + new Date(txnToDelete.dateTime).toLocaleDateString("en-IN") + "\n\n" +
+          "This cannot be undone.";
+
+        if (!confirm(confirmMsg)) return;
+
+        var updatedTxns = allTxns.filter(function (t) { return t.id !== id; });
+        saveTransactions(updatedTxns);
+        updateHomeTotals();
+        applyFilters();
+        alert("Transaction deleted successfully!");
+      });
+    });
+
+    // Checkbox listeners
+    container.querySelectorAll(".txn-checkbox").forEach(function (cb) {
+      cb.addEventListener("change", function () {
+        var id = cb.getAttribute("data-id");
+        var type = cb.getAttribute("data-type");
+        var allTxns = loadTransactions();
+
+        for (var i = 0; i < allTxns.length; i++) {
+          if (allTxns[i].id === id) {
+            if (type === "settled") {
+              allTxns[i].settled = cb.checked;
+            } else {
+              allTxns[i].matched = cb.checked;
+            }
+            break;
+          }
+        }
+
+        saveTransactions(allTxns);
+
+        var parentItem = cb.closest(".txn-item-full");
+        if (cb.checked) {
+          parentItem.classList.add("txn-matched-full");
+        } else {
+          parentItem.classList.remove("txn-matched-full");
+        }
+
+        applyFilters();
+      });
+    });
+  }
 }
 
 // ===== ADD / EDIT TRANSACTION MODAL =====
@@ -541,9 +633,15 @@ function createAddTransactionModal(preSelectedSource, editTxn) {
     sourceOptionsHtml += '<option value="' + s.id + '" ' + selected + ">" + s.emoji + " " + s.name + "</option>";
   });
 
+  // Multi-person: parse existing personName
+  var existingPersons = [];
+  if (isEdit && editTxn.personName) {
+    existingPersons = editTxn.personName.split(", ");
+  }
+
   var nameChipsHtml = "";
   for (var i = 0; i < names.length; i++) {
-    var nameActive = isEdit && editTxn.personName === names[i] ? " chip-active" : "";
+    var nameActive = existingPersons.indexOf(names[i]) !== -1 ? " chip-active" : "";
     nameChipsHtml += '<button type="button" class="chip' + nameActive + '" data-value="' + names[i] + '">' + names[i] + "</button>";
   }
 
@@ -553,13 +651,20 @@ function createAddTransactionModal(preSelectedSource, editTxn) {
     platformChipsHtml += '<button type="button" class="chip' + platActive + '" data-value="' + platforms[i] + '">' + platforms[i] + "</button>";
   }
 
-  var personValue = isEdit && editTxn.personName ? editTxn.personName : "";
   var platformValue = isEdit && editTxn.platform ? editTxn.platform : "";
   var itemsValue = isEdit && editTxn.items ? editTxn.items : "";
   var amountValue = isEdit ? editTxn.amount : "";
 
-  // Check if person/platform is a custom value (not in presets)
-  var isCustomPerson = isEdit && personValue && names.indexOf(personValue) === -1;
+  // Check if there's a custom person not in presets
+  var customPersons = [];
+  if (isEdit && editTxn.personName) {
+    existingPersons.forEach(function (p) {
+      if (names.indexOf(p) === -1 && p !== "Self") {
+        customPersons.push(p);
+      }
+    });
+  }
+
   var isCustomPlatform = isEdit && platformValue && platforms.indexOf(platformValue) === -1;
 
   var headerText = isEdit ? "Edit Transaction" : "Add Transaction";
@@ -587,8 +692,9 @@ function createAddTransactionModal(preSelectedSource, editTxn) {
     "</div>" +
     '<div class="form-field" id="personField">' +
     "<label>Who asked / For whom</label>" +
+    '<p class="multi-hint">You can select multiple people</p>' +
     '<div class="chip-container" id="nameChips">' + nameChipsHtml + "</div>" +
-    '<input type="text" id="txnPerson" placeholder="Or type a name..." value="' + (isCustomPerson ? personValue : "") + '" />' +
+    '<input type="text" id="txnPerson" placeholder="Or type a name..." value="' + customPersons.join(", ") + '" />' +
     "</div>" +
     '<div class="form-field" id="modeField" style="display:none">' +
     "<label>Mode</label>" +
@@ -636,7 +742,6 @@ function createAddTransactionModal(preSelectedSource, editTxn) {
     document.getElementById("txnDateTime").value = local.toISOString().slice(0, 16);
   }
 
-  // Category selection
   var selectedCategory = isEdit ? editTxn.category : null;
   var selectedMode = isEdit && editTxn.mode ? editTxn.mode : null;
 
@@ -666,7 +771,6 @@ function createAddTransactionModal(preSelectedSource, editTxn) {
     }
   }
 
-  // Pre-select category if editing
   if (isEdit) {
     catBtns.forEach(function (btn) {
       if (btn.getAttribute("data-cat") === editTxn.category) {
@@ -676,7 +780,6 @@ function createAddTransactionModal(preSelectedSource, editTxn) {
     updateFieldsForCategory(editTxn.category);
   }
 
-  // Pre-select mode if editing direct credit
   if (isEdit && editTxn.mode) {
     overlay.querySelectorAll(".mode-btn").forEach(function (btn) {
       if (btn.getAttribute("data-mode") === editTxn.mode) {
@@ -694,7 +797,6 @@ function createAddTransactionModal(preSelectedSource, editTxn) {
     });
   });
 
-  // Mode selection
   var modeBtns = overlay.querySelectorAll(".mode-btn");
   modeBtns.forEach(function (btn) {
     btn.addEventListener("click", function () {
@@ -704,14 +806,15 @@ function createAddTransactionModal(preSelectedSource, editTxn) {
     });
   });
 
-  // Name chip selection
+  // MULTI-SELECT name chips
   var nameChipBtns = overlay.querySelectorAll("#nameChips .chip");
   var txnPersonInput = document.getElementById("txnPerson");
 
   nameChipBtns.forEach(function (chip) {
     chip.addEventListener("click", function () {
-      nameChipBtns.forEach(function (c) { c.classList.remove("chip-active"); });
-      chip.classList.add("chip-active");
+      // Toggle this chip
+      chip.classList.toggle("chip-active");
+      // Clear text input when using chips
       txnPersonInput.value = "";
     });
   });
@@ -722,7 +825,7 @@ function createAddTransactionModal(preSelectedSource, editTxn) {
     }
   });
 
-  // Platform chip selection
+  // Platform chips (single select)
   var platChipBtns = overlay.querySelectorAll("#platformChips .chip");
   var txnPlatformInput = document.getElementById("txnPlatform");
 
@@ -753,8 +856,19 @@ function createAddTransactionModal(preSelectedSource, editTxn) {
   document.getElementById("saveTxn").addEventListener("click", function () {
     var source = document.getElementById("txnSource").value;
 
-    var activeNameChip = overlay.querySelector("#nameChips .chip.chip-active");
-    var personName = document.getElementById("txnPerson").value.trim() || (activeNameChip ? activeNameChip.getAttribute("data-value") : "");
+    // Collect selected name chips
+    var selectedNames = [];
+    overlay.querySelectorAll("#nameChips .chip.chip-active").forEach(function (chip) {
+      selectedNames.push(chip.getAttribute("data-value"));
+    });
+
+    // Also check text input
+    var typedPerson = document.getElementById("txnPerson").value.trim();
+    if (typedPerson) {
+      selectedNames.push(typedPerson);
+    }
+
+    var personName = selectedNames.join(", ");
 
     var activePlatChip = overlay.querySelector("#platformChips .chip.chip-active");
     var platform = document.getElementById("txnPlatform").value.trim() || (activePlatChip ? activePlatChip.getAttribute("data-value") : "");
@@ -810,7 +924,6 @@ function createAddTransactionModal(preSelectedSource, editTxn) {
     saveTransactions(transactions);
     updateHomeTotals();
 
-    // If on all txn screen, refresh filters
     if (!document.getElementById("allTxnScreen").classList.contains("screen-hidden")) {
       applyFilters();
     }
@@ -832,7 +945,6 @@ function createSettingsModal() {
   overlay.id = "settingsModal";
   overlay.className = "modal-overlay";
 
-  // Sources HTML
   var sourcesListHtml = "";
   sources.forEach(function (s, index) {
     var emojiPickerHtml = "";
@@ -911,14 +1023,11 @@ function createSettingsModal() {
 
   document.body.appendChild(overlay);
 
-  // Emoji picker logic
   function attachEmojiListeners(container) {
     container.querySelectorAll(".emoji-option").forEach(function (btn) {
       btn.addEventListener("click", function () {
         var picker = btn.closest(".source-emoji-picker");
-        picker.querySelectorAll(".emoji-option").forEach(function (b) {
-          b.classList.remove("emoji-active");
-        });
+        picker.querySelectorAll(".emoji-option").forEach(function (b) { b.classList.remove("emoji-active"); });
         btn.classList.add("emoji-active");
       });
     });
@@ -926,7 +1035,6 @@ function createSettingsModal() {
 
   attachEmojiListeners(overlay);
 
-  // Remove source buttons
   function attachRemoveSourceListeners() {
     overlay.querySelectorAll(".remove-source-btn").forEach(function (btn) {
       btn.addEventListener("click", function () {
@@ -942,7 +1050,6 @@ function createSettingsModal() {
 
   attachRemoveSourceListeners();
 
-  // Add new source
   document.getElementById("addSourceBtn").addEventListener("click", function () {
     var input = document.getElementById("newSourceInput");
     var val = input.value.trim();
@@ -975,7 +1082,6 @@ function createSettingsModal() {
     });
   });
 
-  // Add new name
   document.getElementById("addNameBtn").addEventListener("click", function () {
     var input = document.getElementById("newNameInput");
     var val = input.value.trim();
@@ -990,12 +1096,9 @@ function createSettingsModal() {
     namesList.appendChild(newItem);
     input.value = "";
 
-    newItem.querySelector(".remove-btn").addEventListener("click", function () {
-      newItem.remove();
-    });
+    newItem.querySelector(".remove-btn").addEventListener("click", function () { newItem.remove(); });
   });
 
-  // Add new platform
   document.getElementById("addPlatformBtn").addEventListener("click", function () {
     var input = document.getElementById("newPlatformInput");
     var val = input.value.trim();
@@ -1010,16 +1113,11 @@ function createSettingsModal() {
     platformsList.appendChild(newItem);
     input.value = "";
 
-    newItem.querySelector(".remove-btn").addEventListener("click", function () {
-      newItem.remove();
-    });
+    newItem.querySelector(".remove-btn").addEventListener("click", function () { newItem.remove(); });
   });
 
-  // Remove buttons for existing names/platforms
   overlay.querySelectorAll("#namesList .remove-btn, #platformsList .remove-btn").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      btn.closest(".editable-item").remove();
-    });
+    btn.addEventListener("click", function () { btn.closest(".editable-item").remove(); });
   });
 
   // Export
@@ -1078,17 +1176,12 @@ function createSettingsModal() {
         if (data.platforms) savePlatforms(data.platforms);
         saveTransactions(data.transactions);
 
-        // Handle old format settings
         if (data.settings && !data.sources) {
           var oldSources = [];
           var keys = Object.keys(data.settings.sources);
           var defaultEmojis = { card1: "💳", card2: "💳", bank: "🏦", wallet: "👛" };
           keys.forEach(function (k) {
-            oldSources.push({
-              id: k,
-              emoji: defaultEmojis[k] || "💳",
-              name: data.settings.sources[k]
-            });
+            oldSources.push({ id: k, emoji: defaultEmojis[k] || "💳", name: data.settings.sources[k] });
           });
           saveSources(oldSources);
         }
@@ -1103,18 +1196,13 @@ function createSettingsModal() {
     reader.readAsText(file);
   });
 
-  // Close
-  document.getElementById("closeSettings").addEventListener("click", function () {
-    overlay.remove();
-  });
+  document.getElementById("closeSettings").addEventListener("click", function () { overlay.remove(); });
 
   overlay.addEventListener("click", function (e) {
     if (e.target === overlay) overlay.remove();
   });
 
-  // Save all
   document.getElementById("saveSettings").addEventListener("click", function () {
-    // Save sources
     var newSources = [];
     var sourceItems = document.querySelectorAll(".source-edit-item");
     var existingSources = loadSources();
@@ -1125,16 +1213,11 @@ function createSettingsModal() {
       var name = item.querySelector(".source-name-input").value.trim() || "Source";
       var existingId = existingSources[index] ? existingSources[index].id : "source_" + Date.now() + "_" + index;
 
-      newSources.push({
-        id: existingId,
-        emoji: emoji,
-        name: name
-      });
+      newSources.push({ id: existingId, emoji: emoji, name: name });
     });
 
     saveSources(newSources);
 
-    // Save names
     var nameInputs = document.querySelectorAll(".edit-name-input");
     var newNames = [];
     nameInputs.forEach(function (inp) {
@@ -1143,7 +1226,6 @@ function createSettingsModal() {
     });
     saveNames(newNames);
 
-    // Save platforms
     var platInputs = document.querySelectorAll(".edit-platform-input");
     var newPlatforms = [];
     platInputs.forEach(function (inp) {
@@ -1180,12 +1262,9 @@ function createSummaryModal() {
   var now = new Date();
   var currentKey = now.getFullYear() + "-" + String(now.getMonth()).padStart(2, "0");
   var currentLabel = now.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
-  if (!months[currentKey]) {
-    months[currentKey] = currentLabel;
-  }
+  if (!months[currentKey]) months[currentKey] = currentLabel;
 
   var sortedKeys = Object.keys(months).sort().reverse();
-
   var monthOptionsHtml = "";
   sortedKeys.forEach(function (key) {
     var sel = key === currentKey ? "selected" : "";
@@ -1244,7 +1323,6 @@ function createSummaryModal() {
 
     var sourceTotals = {};
     sources.forEach(function (s) { sourceTotals[s.id] = 0; });
-
     filtered.forEach(function (t) {
       if (sourceTotals.hasOwnProperty(t.source)) {
         sourceTotals[t.source] += Number(t.amount);
@@ -1259,7 +1337,6 @@ function createSummaryModal() {
       }
     });
 
-    // Direct credit person-wise
     var creditPersonTotals = {};
     var creditPersonSettled = {};
     filtered.forEach(function (t) {
@@ -1287,133 +1364,64 @@ function createSummaryModal() {
 
     var html = "";
 
-    // Category breakdown
     html +=
       '<div class="summary-block">' +
       '<div class="summary-block-title">Category Breakdown</div>' +
-      '<div class="summary-line">' +
-      '<span class="summary-line-label">🏠 Household</span>' +
-      '<span class="summary-line-value">₹' + householdTotal.toLocaleString("en-IN") + "</span>" +
-      "</div>" +
-      '<div class="summary-line">' +
-      '<span class="summary-line-label">👤 Someone\'s Personal</span>' +
-      '<span class="summary-line-value">₹' + personalOtherTotal.toLocaleString("en-IN") + "</span>" +
-      "</div>" +
-      '<div class="summary-line">' +
-      '<span class="summary-line-label">🙋 My Personal</span>' +
-      '<span class="summary-line-value">₹' + personalSelfTotal.toLocaleString("en-IN") + "</span>" +
-      "</div>" +
-      '<div class="summary-line">' +
-      '<span class="summary-line-label">🤝 Direct Credit</span>' +
-      '<span class="summary-line-value">₹' + directCreditTotal.toLocaleString("en-IN") + "</span>" +
-      "</div>" +
-      '<div class="summary-line summary-line-total">' +
-      '<span class="summary-line-label">Total</span>' +
-      '<span class="summary-line-value">₹' + grandTotal.toLocaleString("en-IN") + "</span>" +
-      "</div>" +
+      '<div class="summary-line"><span class="summary-line-label">🏠 Household</span><span class="summary-line-value">₹' + householdTotal.toLocaleString("en-IN") + "</span></div>" +
+      '<div class="summary-line"><span class="summary-line-label">👤 Someone\'s Personal</span><span class="summary-line-value">₹' + personalOtherTotal.toLocaleString("en-IN") + "</span></div>" +
+      '<div class="summary-line"><span class="summary-line-label">🙋 My Personal</span><span class="summary-line-value">₹' + personalSelfTotal.toLocaleString("en-IN") + "</span></div>" +
+      '<div class="summary-line"><span class="summary-line-label">🤝 Direct Credit</span><span class="summary-line-value">₹' + directCreditTotal.toLocaleString("en-IN") + "</span></div>" +
+      '<div class="summary-line summary-line-total"><span class="summary-line-label">Total</span><span class="summary-line-value">₹' + grandTotal.toLocaleString("en-IN") + "</span></div>" +
       "</div>";
 
-    // Source breakdown
-    html += '<div class="summary-block">' +
-      '<div class="summary-block-title">Source Breakdown</div>';
+    html += '<div class="summary-block"><div class="summary-block-title">Source Breakdown</div>';
     sources.forEach(function (s) {
       var val = sourceTotals[s.id] || 0;
-      html +=
-        '<div class="summary-line">' +
-        '<span class="summary-line-label">' + s.emoji + " " + s.name + "</span>" +
-        '<span class="summary-line-value">₹' + val.toLocaleString("en-IN") + "</span>" +
-        "</div>";
+      html += '<div class="summary-line"><span class="summary-line-label">' + s.emoji + " " + s.name + '</span><span class="summary-line-value">₹' + val.toLocaleString("en-IN") + "</span></div>";
     });
     html += "</div>";
 
-    // Person-wise collect
     var personNames = Object.keys(personTotals);
     if (personNames.length > 0) {
-      html += '<div class="summary-block">' +
-        '<div class="summary-block-title">Collect for Orders</div>';
+      html += '<div class="summary-block"><div class="summary-block-title">Collect for Orders</div>';
       personNames.forEach(function (name) {
-        html +=
-          '<div class="summary-line">' +
-          '<span class="summary-line-label">👤 ' + name + "</span>" +
-          '<span class="summary-line-value summary-line-owe">₹' + personTotals[name].toLocaleString("en-IN") + "</span>" +
-          "</div>";
+        html += '<div class="summary-line"><span class="summary-line-label">👤 ' + name + '</span><span class="summary-line-value summary-line-owe">₹' + personTotals[name].toLocaleString("en-IN") + "</span></div>";
       });
-      html +=
-        '<div class="summary-line summary-line-total">' +
-        '<span class="summary-line-label">Total to Collect</span>' +
-        '<span class="summary-line-value summary-line-owe">₹' + personalOtherTotal.toLocaleString("en-IN") + "</span>" +
-        "</div>" +
-        "</div>";
+      html += '<div class="summary-line summary-line-total"><span class="summary-line-label">Total to Collect</span><span class="summary-line-value summary-line-owe">₹' + personalOtherTotal.toLocaleString("en-IN") + "</span></div></div>";
     }
 
-    // Direct credits
     var creditNames = Object.keys(creditPersonTotals);
     if (creditNames.length > 0) {
       var totalUnsettled = 0;
-      html += '<div class="summary-block">' +
-        '<div class="summary-block-title">Money Lent</div>';
+      html += '<div class="summary-block"><div class="summary-block-title">Money Lent</div>';
       creditNames.forEach(function (name) {
         var unsettled = creditPersonTotals[name] - creditPersonSettled[name];
         totalUnsettled += unsettled;
         var statusLabel = unsettled > 0 ? " (₹" + unsettled.toLocaleString("en-IN") + " unsettled)" : " (settled)";
-        html +=
-          '<div class="summary-line">' +
-          '<span class="summary-line-label">🤝 ' + name + statusLabel + "</span>" +
-          '<span class="summary-line-value summary-line-owe">₹' + creditPersonTotals[name].toLocaleString("en-IN") + "</span>" +
-          "</div>";
+        html += '<div class="summary-line"><span class="summary-line-label">🤝 ' + name + statusLabel + '</span><span class="summary-line-value summary-line-owe">₹' + creditPersonTotals[name].toLocaleString("en-IN") + "</span></div>";
       });
-      html +=
-        '<div class="summary-line summary-line-total">' +
-        '<span class="summary-line-label">Total Unsettled</span>' +
-        '<span class="summary-line-value summary-line-owe">₹' + totalUnsettled.toLocaleString("en-IN") + "</span>" +
-        "</div>" +
-        "</div>";
+      html += '<div class="summary-line summary-line-total"><span class="summary-line-label">Total Unsettled</span><span class="summary-line-value summary-line-owe">₹' + totalUnsettled.toLocaleString("en-IN") + "</span></div></div>";
     }
 
-    // Father amount
     html +=
-      '<div class="summary-block">' +
-      '<div class="summary-block-title">Amount to Ask from Father</div>' +
-      '<div class="summary-line">' +
-      '<span class="summary-line-label">🏠 Household</span>' +
-      '<span class="summary-line-value">₹' + householdTotal.toLocaleString("en-IN") + "</span>" +
-      "</div>" +
-      '<div class="summary-line summary-line-total">' +
-      '<span class="summary-line-label">Total from Father</span>' +
-      '<span class="summary-line-value">₹' + householdTotal.toLocaleString("en-IN") + "</span>" +
-      "</div>" +
-      "</div>";
+      '<div class="summary-block"><div class="summary-block-title">Amount to Ask from Father</div>' +
+      '<div class="summary-line"><span class="summary-line-label">🏠 Household</span><span class="summary-line-value">₹' + householdTotal.toLocaleString("en-IN") + "</span></div>" +
+      '<div class="summary-line summary-line-total"><span class="summary-line-label">Total from Father</span><span class="summary-line-value">₹' + householdTotal.toLocaleString("en-IN") + "</span></div></div>";
 
-    // Matching status
     html +=
-      '<div class="summary-block">' +
-      '<div class="summary-block-title">Reconciliation Status</div>' +
-      '<div class="summary-line">' +
-      '<span class="summary-line-label">✅ Matched / Settled</span>' +
-      '<span class="summary-line-value">' + matchedCount + "</span>" +
-      "</div>" +
-      '<div class="summary-line">' +
-      '<span class="summary-line-label">⚠️ Pending</span>' +
-      '<span class="summary-line-value summary-line-owe">' + unmatchedCount + "</span>" +
-      "</div>" +
-      '<div class="summary-line">' +
-      '<span class="summary-line-label">Total</span>' +
-      '<span class="summary-line-value">' + filtered.length + "</span>" +
-      "</div>" +
-      "</div>";
+      '<div class="summary-block"><div class="summary-block-title">Reconciliation Status</div>' +
+      '<div class="summary-line"><span class="summary-line-label">✅ Matched / Settled</span><span class="summary-line-value">' + matchedCount + "</span></div>" +
+      '<div class="summary-line"><span class="summary-line-label">⚠️ Pending</span><span class="summary-line-value summary-line-owe">' + unmatchedCount + "</span></div>" +
+      '<div class="summary-line"><span class="summary-line-label">Total</span><span class="summary-line-value">' + filtered.length + "</span></div></div>";
 
     container.innerHTML = html;
   }
 
   renderSummary(currentKey);
 
-  document.getElementById("summaryMonth").addEventListener("change", function () {
-    renderSummary(this.value);
-  });
+  document.getElementById("summaryMonth").addEventListener("change", function () { renderSummary(this.value); });
 
-  document.getElementById("closeSummary").addEventListener("click", function () {
-    overlay.remove();
-  });
+  document.getElementById("closeSummary").addEventListener("click", function () { overlay.remove(); });
 
   overlay.addEventListener("click", function (e) {
     if (e.target === overlay) overlay.remove();
@@ -1422,7 +1430,6 @@ function createSummaryModal() {
 
 // ===== INIT =====
 document.addEventListener("DOMContentLoaded", function () {
-  // Migrate old settings format to new sources format
   var oldSettings = localStorage.getItem("kk_settings");
   var existingSources = localStorage.getItem("kk_sources");
 
@@ -1432,34 +1439,25 @@ document.addEventListener("DOMContentLoaded", function () {
     var migratedSources = [];
     var keys = Object.keys(settings.sources);
     keys.forEach(function (k) {
-      migratedSources.push({
-        id: k,
-        emoji: defaultEmojis[k] || "💳",
-        name: settings.sources[k]
-      });
+      migratedSources.push({ id: k, emoji: defaultEmojis[k] || "💳", name: settings.sources[k] });
     });
     saveSources(migratedSources);
   }
 
   updateHomeTotals();
 
-  document.getElementById("settingsBtn").addEventListener("click", function () {
-    createSettingsModal();
-  });
+  document.getElementById("settingsBtn").addEventListener("click", function () { createSettingsModal(); });
 
-  document.getElementById("summaryBtn").addEventListener("click", function () {
-    createSummaryModal();
-  });
+  document.getElementById("summaryBtn").addEventListener("click", function () { createSummaryModal(); });
 
-  document.getElementById("fabBtn").addEventListener("click", function () {
-    createAddTransactionModal(null, null);
-  });
+  document.getElementById("fabBtn").addEventListener("click", function () { createAddTransactionModal(null, null); });
 
-  document.getElementById("viewAllBtn").addEventListener("click", function () {
-    openAllTransactions();
-  });
+  document.getElementById("viewAllBtn").addEventListener("click", function () { openAllTransactions(); });
 
   document.getElementById("backToHome").addEventListener("click", function () {
+    calcMode = false;
+    calcSelectedIds = [];
+    updateCalcBar();
     showScreen("homeScreen");
     updateHomeTotals();
   });
@@ -1468,4 +1466,28 @@ document.addEventListener("DOMContentLoaded", function () {
   document.getElementById("filterSource").addEventListener("change", applyFilters);
   document.getElementById("filterCategory").addEventListener("change", applyFilters);
   document.getElementById("filterStatus").addEventListener("change", applyFilters);
+
+  // Search
+  var searchInput = document.getElementById("searchInput");
+  var searchClear = document.getElementById("searchClear");
+
+  searchInput.addEventListener("input", function () {
+    if (searchInput.value.trim()) {
+      searchClear.classList.add("visible");
+    } else {
+      searchClear.classList.remove("visible");
+    }
+    applyFilters();
+  });
+
+  searchClear.addEventListener("click", function () {
+    searchInput.value = "";
+    searchClear.classList.remove("visible");
+    applyFilters();
+  });
+
+  // Calculator mode
+  document.getElementById("calcModeBtn").addEventListener("click", function () { toggleCalcMode(); });
+
+  document.getElementById("calcDoneBtn").addEventListener("click", function () { toggleCalcMode(); });
 });
