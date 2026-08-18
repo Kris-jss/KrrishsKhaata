@@ -15,8 +15,9 @@ In a joint family, one person often handles all daily purchases — groceries, h
 - Difficult to track which expenses are household vs someone's personal
 - No easy way to calculate how much to collect from family members
 - Direct cash/UPI credits given to family members get forgotten
+- Sharing month-end expense details with parents is awkward without a proper format
 
-**Krrish's Khaata** solves this by providing a quick, mobile-first logging system where every transaction is recorded immediately after payment with full context.
+**Krrish's Khaata** solves this by providing a quick, mobile-first logging system where every transaction is recorded immediately after payment with full context — and can be turned into a proper statement whenever needed.
 
 ---
 
@@ -29,6 +30,7 @@ In a joint family, one person often handles all daily purchases — groceries, h
   - 👤 **Someone's Personal** — items ordered for a specific person
   - 🙋 **My Personal** — your own expenses
   - 🤝 **Direct Credit** — cash/UPI money lent to someone
+- **Multi-person selection** — tag multiple people who requested the same order (e.g., "Mother, Sister")
 - Pre-set family member names and platforms as **quick-select chips**
 - Auto-captured date & time (editable if needed)
 - Free-text fields for item details
@@ -47,6 +49,30 @@ In a joint family, one person often handles all daily purchases — groceries, h
 - **Choose emoji** for each source from preset options (💳 🏦 👛 💵 📱)
 - Home screen **dynamically adapts** to show all your sources
 - Old transactions remain safe even if a source is deleted
+
+### 🔍 Search
+- **Live search** across all transactions
+- Searches through **person name, amount, items, platform, source, and mode**
+- Instant results as you type
+- Works alongside existing filters
+
+### 🧮 Calculator Mode
+- **Select specific transactions** and see their sum instantly
+- Useful for matching partial payments or reconciling with statements
+- Floating bar shows count and total of selected transactions
+- Tap **Done** to exit calculator mode
+
+### 📄 PDF Statement Generator
+- **Generate professional statements** for any date range
+- Filter by **date range**, **categories**, and **payment sources**
+- Opens a **bank-statement-style page** with:
+  - App branding and tagline
+  - Transaction table (Date, Category, Person, Particulars, Source, Amount)
+  - Total amount card
+  - Category-wise and source-wise breakdown
+  - Generated timestamp
+- **Print-optimized** — save as PDF via browser's print dialog
+- Share with family or keep for records
 
 ### 📊 Month-End Reconciliation
 - **Statement Matching** — checkbox to tick off matched transactions
@@ -71,11 +97,12 @@ In a joint family, one person often handles all daily purchases — groceries, h
 ### 💬 WhatsApp Reminders
 - **One-tap WhatsApp reminder** for personal orders:
   > "Hey [Name], you had asked me to order [Items] on [Date]. The amount for it was ₹[Amount]. Please settle when convenient 🙏"
+- **Smart multi-person handling:**
+  > "Hey [Name], you and [Others] asked me to order [Items] on [Date]..."
 - **Different message for direct credits:**
   > "Hey [Name], I had lent you ₹[Amount] on [Date]. Kindly settle when convenient 🙂"
 - Opens WhatsApp directly with pre-filled message
 - Available on both home screen and View All screen
-- Shows only on relevant categories (Someone's Personal & Direct Credit)
 
 ### ⚙️ Settings & Customization
 - **Manage Payment Sources** — add, remove, rename, change emoji
@@ -96,11 +123,12 @@ In a joint family, one person often handles all daily purchases — groceries, h
 | Technology | Purpose |
 |---|---|
 | **HTML5** | App structure and semantic markup |
-| **CSS3** | Styling, animations, responsive design |
+| **CSS3** | Styling, animations, responsive design, print styles |
 | **Vanilla JavaScript** | All app logic, data management, DOM manipulation |
 | **LocalStorage** | Client-side persistent data storage |
 | **PWA (Service Worker + Manifest)** | Offline support, installability, app-like experience |
 | **WhatsApp Web API** | Pre-filled reminder messages |
+| **Browser Print API** | PDF statement generation |
 
 ### No frameworks. No libraries. No backend. No database server.
 
@@ -148,20 +176,22 @@ Once installed, the app works **even without internet**. All data is stored loca
 - Floating Action Button (FAB) for quick transaction entry
 - Chip-based selection for fast input
 - Modal-based forms for focused interaction
+- Print-optimized CSS for PDF statements
 
 ---
 
 ## 📂 Project Structure
 KrrishsKhaata/
-- index.html # Main app — home screen + all transactions screen
-- style.css # Complete styling — responsive, animations, modals
-- app.js # Full app logic — CRUD, filters, summary, WhatsApp
-- manifest.json # PWA manifest — app name, icons, theme
-- service-worker.js # Service worker — offline caching
-- README.md # Project documentation
-- icons/
-- icon-192.png # App icon (192x192)
-- icon-512.png # App icon (512x512)
+├── index.html # Main app — home screen + all transactions screen
+├── style.css # Complete styling — responsive, animations, print styles
+├── app.js # Full app logic — CRUD, filters, summary, WhatsApp, PDF
+├── manifest.json # PWA manifest — app name, icons, theme
+├── service-worker.js # Service worker — offline caching with versioning
+├── README.md # Project documentation
+└── icons/
+├── icon-192.png # App icon (192x192)
+└── icon-512.png # App icon (512x512)
+
 
 ---
 
@@ -177,6 +207,8 @@ Building this project gave me hands-on experience with:
 - **UI/UX Thinking** — quick-entry forms, chip-based selections, intuitive navigation, and clean information hierarchy
 - **Data Architecture** — structuring transaction data for flexible filtering, summarizing, and reconciliation
 - **PWA Update Strategy** — versioned service worker caching for seamless app updates
+- **Print CSS** — designing browser-printable pages that look professional as PDFs
+- **Iterative Development** — releasing an MVP, using it for a month, then adding features based on real usage feedback
 
 ---
 
@@ -198,4 +230,4 @@ Built as a personal tool to solve a real problem — then turned into a portfoli
 
 ## 📝 License
 
-This project is open source and available under the [MIT License](LICENSE).
+This project is open source and available under the [MIT License](LICENSE)
