@@ -61,12 +61,19 @@ select {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
 }
 
 .app-header h1 {
   font-size: 1.6rem;
   font-weight: 800;
   letter-spacing: -0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
 }
 
 .header-actions {
@@ -1251,4 +1258,28 @@ select {
   height: 18px;
   accent-color: var(--color-primary);
   cursor: pointer;
+}
+
+/* ===== ALL TXN SCREEN HEADER FIX ===== */
+#allTxnScreen .app-header h1 {
+  font-size: 1.15rem;
+  text-align: center;
+}
+
+#allTxnScreen .back-btn {
+  padding: 6px 10px;
+  font-size: 0.82rem;
+  flex-shrink: 0;
+}
+
+#allTxnScreen .header-icon-btn {
+  width: 34px;
+  height: 34px;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+#allTxnScreen .header-actions {
+  gap: 6px;
+  flex-shrink: 0;
 }

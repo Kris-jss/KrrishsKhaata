@@ -1,4 +1,4 @@
-var CACHE_NAME = "krrish-khaata-v4";
+var CACHE_NAME = "krrish-khaata-v5";
 var urlsToCache = [
   "./index.html",
   "./style.css",
