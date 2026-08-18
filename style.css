@@ -1228,3 +1228,27 @@ select {
     padding: 24px;
   }
 }
+
+/* ===== STATEMENT MODAL ===== */
+.stmt-check-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stmt-check-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.stmt-check-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}

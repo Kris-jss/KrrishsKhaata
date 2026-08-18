@@ -29,29 +29,14 @@ In a joint family, one person often handles all daily purchases — groceries, h
   - 👤 **Someone's Personal** — items ordered for a specific person
   - 🙋 **My Personal** — your own expenses
   - 🤝 **Direct Credit** — cash/UPI money lent to someone
-- **Multi-person selection** — select multiple family members for a single transaction (e.g., "Mother and Sister asked to order vegetables")
 - Pre-set family member names and platforms as **quick-select chips**
 - Auto-captured date & time (editable if needed)
 - Free-text fields for item details
 - **Mode selection** for direct credits (Cash / UPI / Bank Transfer)
 - Optional notes for direct credits
 
-### 🔍 Search
-- **Live search bar** on the View All screen
-- Search across **person name, items, amount, platform, and source**
-- Results update instantly as you type
-- Works alongside all existing filters
-
-### 🧮 Calculator Mode
-- **Select specific transactions** and see their sum instantly
-- Tap the 🧮 icon on the View All screen to enter calculator mode
-- Tap transactions to select/deselect them
-- **Floating bar** at the bottom shows selected count and total amount
-- Tap "Done" to exit calculator mode
-- Perfect for when you're sitting with your statement and want to total specific entries
-
 ### ✏️ Edit & Delete Transactions
-- **Edit button (✏️)** on every transaction — opens pre-filled form with all original data
+- **Edit button (✏️)** on every transaction — opens pre-filled form
 - **Delete button (🗑️)** with confirmation dialog
 - Available on both home screen and View All screen
 
@@ -86,8 +71,6 @@ In a joint family, one person often handles all daily purchases — groceries, h
 ### 💬 WhatsApp Reminders
 - **One-tap WhatsApp reminder** for personal orders:
   > "Hey [Name], you had asked me to order [Items] on [Date]. The amount for it was ₹[Amount]. Please settle when convenient 🙏"
-- **Multi-person message** when multiple people are involved:
-  > "Hey [Name1], you and [Name2] asked me to order [Items] on [Date]. The amount for it was ₹[Amount]. Please settle when convenient 🙏"
 - **Different message for direct credits:**
   > "Hey [Name], I had lent you ₹[Amount] on [Date]. Kindly settle when convenient 🙂"
 - Opens WhatsApp directly with pre-filled message
@@ -128,3 +111,91 @@ The entire app runs in the browser using only web standards — making it lightw
 ## 🔒 Privacy & Data Security
 
 - **All data stays on your device** — nothing is sent to any server
+- Uses browser's LocalStorage for persistence
+- **No login, no account, no tracking, no analytics**
+- Each user's data is completely isolated — even if multiple people use the same app URL
+- Export feature lets you take manual backups
+- Data persists across sessions, restarts, and even offline use
+- **Only risk:** clearing browser data will erase app data (use Export Backup regularly)
+
+---
+
+## 📱 Installation
+
+### On Android (Recommended)
+1. Open [the app](https://kris-jss.github.io/KrrishsKhaata/) in **Chrome**
+2. Tap the **three dots menu** (⋮)
+3. Tap **"Add to Home Screen"** or **"Install App"**
+4. The app appears on your home screen — no address bar, feels like a native app
+
+### On Desktop
+1. Open [the app](https://kris-jss.github.io/KrrishsKhaata/) in **Chrome**
+2. Click the **install icon** in the address bar
+3. Or use it directly in the browser
+
+### Offline Usage
+Once installed, the app works **even without internet**. All data is stored locally and the service worker caches all app files.
+
+---
+
+## 🎨 Design
+
+- **Mobile-first** responsive design optimized for one-handed use
+- Custom color palette: `#DAF1DE` · `#8EB69B` · `#235347` · `#C1E8FF` · `#7DA0CA`
+- Google Fonts (Inter) for clean typography
+- Smooth CSS animations and transitions
+- Card-based UI with depth and shadows
+- Floating Action Button (FAB) for quick transaction entry
+- Chip-based selection for fast input
+- Modal-based forms for focused interaction
+
+---
+
+## 📂 Project Structure
+KrrishsKhaata/
+- index.html # Main app — home screen + all transactions screen
+- style.css # Complete styling — responsive, animations, modals
+- app.js # Full app logic — CRUD, filters, summary, WhatsApp
+- manifest.json # PWA manifest — app name, icons, theme
+- service-worker.js # Service worker — offline caching
+- README.md # Project documentation
+- icons/
+- icon-192.png # App icon (192x192)
+- icon-512.png # App icon (512x512)
+
+---
+
+## 🧠 What I Learned
+
+Building this project gave me hands-on experience with:
+
+- **Progressive Web Apps** — service workers, manifests, caching strategies, and installability
+- **LocalStorage** — client-side data persistence without any backend
+- **DOM Manipulation** — building complex dynamic UIs with vanilla JavaScript
+- **Mobile-First Design** — designing for small screens with touch-friendly interactions
+- **Real-World Problem Solving** — identifying a genuine daily-life pain point and engineering a practical solution
+- **UI/UX Thinking** — quick-entry forms, chip-based selections, intuitive navigation, and clean information hierarchy
+- **Data Architecture** — structuring transaction data for flexible filtering, summarizing, and reconciliation
+- **PWA Update Strategy** — versioned service worker caching for seamless app updates
+
+---
+
+## 🚀 Live Demo
+
+🔗 [https://kris-jss.github.io/KrrishsKhaata/](https://kris-jss.github.io/KrrishsKhaata/)
+
+---
+
+## 👤 Author
+
+**Krrish**
+- GitHub: [@Kris-jss](https://github.com/Kris-jss)
+- BTech 2nd Year Student
+
+Built as a personal tool to solve a real problem — then turned into a portfolio project.
+
+---
+
+## 📝 License
+
+This project is open source and available under the [MIT License](LICENSE).

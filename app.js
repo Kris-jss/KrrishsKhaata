@@ -1428,6 +1428,307 @@ function createSummaryModal() {
   });
 }
 
+// ===== STATEMENT GENERATOR =====
+function createStatementModal() {
+  var existing = document.getElementById("stmtModal");
+  if (existing) existing.remove();
+
+  var sources = loadSources();
+
+  var overlay = document.createElement("div");
+  overlay.id = "stmtModal";
+  overlay.className = "modal-overlay";
+
+  var sourceCheckboxes = "";
+  sources.forEach(function (s) {
+    sourceCheckboxes +=
+      '<label class="stmt-check-label">' +
+      '<input type="checkbox" class="stmt-source-check" value="' + s.id + '" checked /> ' +
+      s.emoji + " " + s.name +
+      "</label>";
+  });
+
+  var now = new Date();
+  var firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+  var lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+  function formatDate(d) {
+    var yyyy = d.getFullYear();
+    var mm = String(d.getMonth() + 1).padStart(2, "0");
+    var dd = String(d.getDate()).padStart(2, "0");
+    return yyyy + "-" + mm + "-" + dd;
+  }
+
+  overlay.innerHTML =
+    '<div class="modal-box modal-tall">' +
+    '<div class="modal-header">' +
+    "<h2>Generate Statement</h2>" +
+    '<button class="modal-close" id="closeStmt">✕</button>' +
+    "</div>" +
+    '<div class="modal-body modal-scroll">' +
+    '<div class="form-field">' +
+    "<label>From Date</label>" +
+    '<input type="date" id="stmtFrom" value="' + formatDate(firstDay) + '" />' +
+    "</div>" +
+    '<div class="form-field">' +
+    "<label>To Date</label>" +
+    '<input type="date" id="stmtTo" value="' + formatDate(lastDay) + '" />' +
+    "</div>" +
+    '<div class="form-field">' +
+    "<label>Categories</label>" +
+    '<div class="stmt-check-group">' +
+    '<label class="stmt-check-label"><input type="checkbox" class="stmt-cat-check" value="household" checked /> 🏠 Household</label>' +
+    '<label class="stmt-check-label"><input type="checkbox" class="stmt-cat-check" value="personal_other" checked /> 👤 Someone\'s Personal</label>' +
+    '<label class="stmt-check-label"><input type="checkbox" class="stmt-cat-check" value="personal_self" checked /> 🙋 My Personal</label>' +
+    '<label class="stmt-check-label"><input type="checkbox" class="stmt-cat-check" value="direct_credit" checked /> 🤝 Direct Credit</label>' +
+    "</div>" +
+    "</div>" +
+    '<div class="form-field">' +
+    "<label>Payment Sources</label>" +
+    '<div class="stmt-check-group">' + sourceCheckboxes + "</div>" +
+    "</div>" +
+    "</div>" +
+    '<div class="modal-footer">' +
+    '<button class="btn-save" id="generateStmt">📄 Generate Statement</button>' +
+    "</div>" +
+    "</div>";
+
+  document.body.appendChild(overlay);
+
+  document.getElementById("closeStmt").addEventListener("click", function () { overlay.remove(); });
+
+  overlay.addEventListener("click", function (e) {
+    if (e.target === overlay) overlay.remove();
+  });
+
+  document.getElementById("generateStmt").addEventListener("click", function () {
+    var fromDate = document.getElementById("stmtFrom").value;
+    var toDate = document.getElementById("stmtTo").value;
+
+    if (!fromDate || !toDate) {
+      alert("Please select both dates");
+      return;
+    }
+
+    var selectedCats = [];
+    overlay.querySelectorAll(".stmt-cat-check:checked").forEach(function (cb) {
+      selectedCats.push(cb.value);
+    });
+
+    var selectedSources = [];
+    overlay.querySelectorAll(".stmt-source-check:checked").forEach(function (cb) {
+      selectedSources.push(cb.value);
+    });
+
+    if (selectedCats.length === 0) {
+      alert("Please select at least one category");
+      return;
+    }
+
+    if (selectedSources.length === 0) {
+      alert("Please select at least one source");
+      return;
+    }
+
+    var from = new Date(fromDate);
+    from.setHours(0, 0, 0, 0);
+    var to = new Date(toDate);
+    to.setHours(23, 59, 59, 999);
+
+    var transactions = loadTransactions();
+
+    var filtered = transactions.filter(function (t) {
+      var d = new Date(t.dateTime);
+      if (d < from || d > to) return false;
+      if (selectedCats.indexOf(t.category) === -1) return false;
+      if (selectedSources.indexOf(t.source) === -1) return false;
+      return true;
+    });
+
+    filtered.sort(function (a, b) {
+      return new Date(a.dateTime) - new Date(b.dateTime);
+    });
+
+    if (filtered.length === 0) {
+      alert("No transactions found for the selected filters");
+      return;
+    }
+
+    generateStatementPage(filtered, fromDate, toDate);
+    overlay.remove();
+  });
+}
+
+function generateStatementPage(transactions, fromDate, toDate) {
+  var sources = loadSources();
+
+  var fromStr = new Date(fromDate).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+  var toStr = new Date(toDate).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+  var generatedOn = new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
+  var categoryLabels = {
+    household: "🏠 Household",
+    personal_other: "👤 Personal",
+    personal_self: "🙋 Self",
+    direct_credit: "🤝 Credit"
+  };
+
+  // Calculate totals
+  var grandTotal = 0;
+  var catTotals = { household: 0, personal_other: 0, personal_self: 0, direct_credit: 0 };
+  var srcTotals = {};
+
+  sources.forEach(function (s) { srcTotals[s.id] = 0; });
+
+  transactions.forEach(function (t) {
+    var amt = Number(t.amount);
+    grandTotal += amt;
+    if (catTotals.hasOwnProperty(t.category)) catTotals[t.category] += amt;
+    if (srcTotals.hasOwnProperty(t.source)) srcTotals[t.source] += amt;
+  });
+
+  // Build table rows
+  var rowsHtml = "";
+  transactions.forEach(function (t, index) {
+    var d = new Date(t.dateTime);
+    var dateStr = d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    var timeStr = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+    var catLabel = categoryLabels[t.category] || t.category;
+    var sourceName = getSourceName(t.source);
+
+    var particulars = t.items || "-";
+    if (t.category === "direct_credit") {
+      particulars = t.mode ? ("Via " + t.mode) : "Direct Credit";
+      if (t.items) particulars += " · " + t.items;
+    }
+
+    var person = t.personName || "-";
+
+    rowsHtml +=
+      "<tr>" +
+      "<td>" + (index + 1) + "</td>" +
+      "<td>" + dateStr + "<br><small>" + timeStr + "</small></td>" +
+      "<td>" + catLabel + "</td>" +
+      "<td>" + person + "</td>" +
+      "<td>" + particulars + "</td>" +
+      "<td>" + sourceName + "</td>" +
+      '<td class="amt">₹' + Number(t.amount).toLocaleString("en-IN") + "</td>" +
+      "</tr>";
+  });
+
+  // Category summary rows
+  var catSummaryHtml = "";
+  var catKeys = Object.keys(catTotals);
+  catKeys.forEach(function (key) {
+    if (catTotals[key] > 0) {
+      catSummaryHtml +=
+        "<tr><td>" + (categoryLabels[key] || key) + "</td>" +
+        '<td class="amt">₹' + catTotals[key].toLocaleString("en-IN") + "</td></tr>";
+    }
+  });
+
+  // Source summary rows
+  var srcSummaryHtml = "";
+  sources.forEach(function (s) {
+    if (srcTotals[s.id] > 0) {
+      srcSummaryHtml +=
+        "<tr><td>" + s.emoji + " " + s.name + "</td>" +
+        '<td class="amt">₹' + srcTotals[s.id].toLocaleString("en-IN") + "</td></tr>";
+    }
+  });
+
+  var html = '<!DOCTYPE html>' +
+    '<html lang="en"><head>' +
+    '<meta charset="UTF-8">' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+    '<title>Statement — Krrish\'s Khaata</title>' +
+    '<style>' +
+    '* { box-sizing: border-box; margin: 0; padding: 0; }' +
+    'body { font-family: "Segoe UI", Arial, sans-serif; background: #f5f5f5; color: #1a1a1a; padding: 20px; }' +
+    '.stmt-container { max-width: 800px; margin: 0 auto; background: #fff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); overflow: hidden; }' +
+    '.stmt-header { background: linear-gradient(135deg, #235347, #2d6b5a); color: #fff; padding: 28px 24px; }' +
+    '.stmt-header h1 { font-size: 1.5rem; font-weight: 800; margin-bottom: 4px; }' +
+    '.stmt-header .stmt-tagline { font-size: 0.85rem; opacity: 0.85; font-style: italic; margin-bottom: 16px; }' +
+    '.stmt-period { display: flex; gap: 24px; margin-top: 12px; }' +
+    '.stmt-period div { font-size: 0.85rem; }' +
+    '.stmt-period strong { display: block; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.8; margin-bottom: 2px; }' +
+    '.stmt-body { padding: 24px; }' +
+    '.stmt-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-bottom: 24px; }' +
+    '.stmt-table th { background: #235347; color: #fff; padding: 10px 8px; text-align: left; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.3px; }' +
+    '.stmt-table td { padding: 10px 8px; border-bottom: 1px solid #e8e8e8; vertical-align: top; }' +
+    '.stmt-table tr:nth-child(even) { background: #f9fdfb; }' +
+    '.stmt-table tr:last-child td { border-bottom: 2px solid #235347; }' +
+    '.stmt-table .amt { text-align: right; font-weight: 700; white-space: nowrap; }' +
+    '.stmt-table small { color: #666; font-size: 0.75rem; }' +
+    '.stmt-grand { display: flex; justify-content: space-between; align-items: center; background: linear-gradient(135deg, #235347, #2d6b5a); color: #fff; padding: 16px 20px; border-radius: 10px; margin-bottom: 24px; }' +
+    '.stmt-grand .label { font-size: 0.9rem; font-weight: 600; }' +
+    '.stmt-grand .value { font-size: 1.5rem; font-weight: 800; }' +
+    '.stmt-summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }' +
+    '.stmt-summary-box { background: #daf1de; border-radius: 10px; padding: 16px; }' +
+    '.stmt-summary-box h3 { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.4px; color: #4c6b62; margin-bottom: 10px; }' +
+    '.stmt-summary-table { width: 100%; font-size: 0.82rem; }' +
+    '.stmt-summary-table td { padding: 5px 0; border-bottom: 1px solid rgba(142,182,155,0.3); }' +
+    '.stmt-summary-table tr:last-child td { border-bottom: none; }' +
+    '.stmt-footer { text-align: center; padding: 20px; border-top: 1px solid #e8e8e8; color: #999; font-size: 0.78rem; }' +
+    '.stmt-footer .brand { color: #235347; font-weight: 700; font-size: 0.85rem; margin-bottom: 4px; }' +
+    '.stmt-count { color: #666; font-size: 0.82rem; margin-bottom: 16px; }' +
+    '@media print {' +
+    '* { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }' +
+    'body { padding: 0; background: #fff; }' +
+    '.stmt-container { box-shadow: none; border-radius: 0; }' +
+    '.stmt-header, .stmt-grand { background: #235347 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }' +
+    '.stmt-table th { background: #235347 !important; color: #fff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }' +
+    '.stmt-summary-box { background: #daf1de !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }' +
+    '.stmt-table tr:nth-child(even) { background: #f9fdfb !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }' +
+    '}' +
+    '@media (max-width: 600px) { .stmt-summary-grid { grid-template-columns: 1fr; } .stmt-period { flex-direction: column; gap: 8px; } }' +
+    '</style></head><body>' +
+    '<div class="stmt-container">' +
+    '<div class="stmt-header">' +
+    "<h1>Krrish's Khaata</h1>" +
+    '<p class="stmt-tagline">Because every rupee has a story 💸</p>' +
+    '<div class="stmt-period">' +
+    "<div><strong>From</strong>" + fromStr + "</div>" +
+    "<div><strong>To</strong>" + toStr + "</div>" +
+    "<div><strong>Transactions</strong>" + transactions.length + "</div>" +
+    "</div>" +
+    "</div>" +
+    '<div class="stmt-body">' +
+    '<div class="stmt-grand">' +
+    '<span class="label">Total Amount</span>' +
+    '<span class="value">₹' + grandTotal.toLocaleString("en-IN") + "</span>" +
+    "</div>" +
+    '<p class="stmt-count">' + transactions.length + " transactions found for the selected period</p>" +
+    '<table class="stmt-table">' +
+    "<thead><tr>" +
+    "<th>#</th><th>Date</th><th>Category</th><th>Person</th><th>Particulars</th><th>Source</th><th class=\"amt\">Amount</th>" +
+    "</tr></thead>" +
+    "<tbody>" + rowsHtml + "</tbody>" +
+    "</table>" +
+    '<div class="stmt-summary-grid">' +
+    '<div class="stmt-summary-box">' +
+    "<h3>Category Breakdown</h3>" +
+    '<table class="stmt-summary-table">' + catSummaryHtml + "</table>" +
+    "</div>" +
+    '<div class="stmt-summary-box">' +
+    "<h3>Source Breakdown</h3>" +
+    '<table class="stmt-summary-table">' + srcSummaryHtml + "</table>" +
+    "</div>" +
+    "</div>" +
+    "</div>" +
+    '<div class="stmt-footer">' +
+    '<p class="brand">Krrish\'s Khaata</p>' +
+    "<p>Generated on " + generatedOn + "</p>" +
+    "<p>This is a personal expense statement. Not an official financial document.</p>" +
+    "</div>" +
+    "</div>" +
+    "</body></html>";
+
+  var newTab = window.open("", "_blank");
+  newTab.document.write(html);
+  newTab.document.close();
+}
+
 // ===== INIT =====
 document.addEventListener("DOMContentLoaded", function () {
   var oldSettings = localStorage.getItem("kk_settings");
@@ -1488,6 +1789,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Calculator mode
   document.getElementById("calcModeBtn").addEventListener("click", function () { toggleCalcMode(); });
+    // Statement generator
+  document.getElementById("stmtBtn").addEventListener("click", function () { createStatementModal(); });
 
   document.getElementById("calcDoneBtn").addEventListener("click", function () { toggleCalcMode(); });
 });
